@@ -223,6 +223,7 @@
         <div style="height:8px"></div>
         <a class="btn" href="/runs/{{ latest_run_id }}/summary{% if company_id %}?company_id={{ company_id }}{% endif %}">Summary</a>
         <a class="btn" href="/runs/{{ latest_run_id }}/report{% if company_id %}?company_id={{ company_id }}{% endif %}">Report</a>
+        <a class="btn" href="/runs/{{ latest_run_id }}/staging_report{% if company_id %}?company_id={{ company_id }}{% endif %}">Staging</a>
         <a class="btn" href="/runs/{{ latest_run_id }}/mapping{% if company_id %}?company_id={{ company_id }}{% endif %}">Mapping</a>
         {% if latest_has_debug %}
           <a class="btn" href="/runs/{{ latest_run_id }}/debug{% if company_id %}?company_id={{ company_id }}{% endif %}">Debug</a>
@@ -247,6 +248,7 @@
             <td>
               <a href="/runs/{{ r.run_id }}/summary{% if company_id %}?company_id={{ company_id }}{% endif %}">summary</a>
               | <a href="/runs/{{ r.run_id }}/report{% if company_id %}?company_id={{ company_id }}{% endif %}">report</a>
+              | <a href="/runs/{{ r.run_id }}/staging_report{% if company_id %}?company_id={{ company_id }}{% endif %}">staging</a>
               | <a href="/runs/{{ r.run_id }}/mapping{% if company_id %}?company_id={{ company_id }}{% endif %}">mapping</a>
               {% if r.has_debug %} | <a href="/runs/{{ r.run_id }}/debug{% if company_id %}?company_id={{ company_id }}{% endif %}">debug</a>{% endif %}
               | <a href="/diagram/acki_run_{{ r.run_id }}">acki</a>

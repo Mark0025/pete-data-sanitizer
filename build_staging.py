@@ -977,7 +977,7 @@ def _df_to_markdown_table(df: pd.DataFrame, columns: list[str], max_rows: int = 
     return "\n".join([header, sep, *rows])
 
 
-def write_client_markdown_report(
+def write_staging_markdown_report(
     report_md_path: Path,
     *,
     desired_path: Path,
@@ -996,7 +996,11 @@ def write_client_markdown_report(
     global_phones_csv_path: Path,
     global_emails_csv_path: Path,
 ) -> None:
-    """Write a client-facing report (short + friendly, with expandable details)."""
+    """
+    Detailed operator report (for you).
+
+    This is the "staging report": inputs/outputs + key counts + top tables.
+    """
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     desired_rows = int(report_summary.get("desired_outcome_rows", 0))
     desired_unique = int(report_summary.get("desired_outcome_unique_addresses", 0))
@@ -1029,42 +1033,22 @@ def write_client_markdown_report(
             emails_reused_across_addresses = 0
 
     md: list[str] = []
-    md.append("## What this tool fixed (quick report)")
+    md.append("## pete DEAL MACHEINE CLEAN REPORT")
     md.append("")
     md.append(f"- **Created**: {created_at}")
     md.append("")
-    md.append("### Summary (non-technical)")
+    md.append("## Inputs used")
     md.append("")
-    md.append(f"- We started with **{desired_rows} rows** and produced **{desired_unique} unique properties**.")
-    md.append(f"- We removed **{deduped} duplicate property rows** (same address appearing multiple times).")
-    md.append(f"- We found **{addresses_with_multiple_contacts} addresses** with more than one contact.")
-    md.append(f"- We detected **{addr_phone_collisions} addresses** where the same phone appears more than once.")
-    md.append(f"- We detected **{addr_email_collisions} addresses** where the same email appears more than once.")
-    md.append(f"- We found **{phones_reused_across_addresses} phone numbers** reused across different addresses.")
-    md.append(f"- We found **{emails_reused_across_addresses} emails** reused across different addresses.")
-    md.append("")
-    md.append("### Import formatting (to reduce import errors)")
-    md.append("")
-    md.append("- **Phone numbers**: normalized to digits-only (no `.0`, no punctuation).")
-    md.append("- **Commas/newlines**: removed from output fields to avoid mangled CSV imports.")
-    md.append("- **Full Address**: ZIP is removed from `Full Address` and stored in `Zip Code` instead.")
-    md.append("")
-    md.append("<details>")
-    md.append("<summary><b>Inputs / outputs (details)</b></summary>")
-    md.append("")
-    md.append("#### Inputs used")
-    md.append("")
-    desired_label = str(desired_path) if str(desired_path) and str(desired_path) != "None" else "(contacts-only)"
-    md.append(f"- **Desired-outcome CSV**: `{desired_label}`")
+    md.append(f"- **Desired-outcome CSV**: `{desired_path}`")
     md.append(f"- **Contacts CSV**: `{contacts_path}`")
     md.append(f"- **Properties template**: `{template_path}`")
     md.append("")
-    md.append("#### What this run did")
+    md.append("## What this run did")
     md.append("")
     md.append("- **Deduped by address**: produced **one row per `Full Address`** in the import sheet.")
     md.append("- **Seller selection**: when multiple contacts exist for an address, contacts flagged **“Likely Owner”** are prioritized.")
     md.append("")
-    md.append("#### Key counts")
+    md.append("## Key counts")
     md.append("")
     md.append(f"- **Desired-outcome rows (input)**: {desired_rows}")
     md.append(f"- **Unique addresses (input)**: {desired_unique}")
@@ -1073,7 +1057,7 @@ def write_client_markdown_report(
     if contacts_unique_addresses:
         md.append(f"- **Unique addresses found in contacts**: {contacts_unique_addresses}")
     md.append("")
-    md.append("#### Outputs produced")
+    md.append("## Outputs produced")
     md.append("")
     md.append(f"- **Import workbook (upload this)**: `{out_xlsx_path}`")
     md.append("  - `Sheet1`: import-ready template-shaped sheet")
@@ -1086,10 +1070,7 @@ def write_client_markdown_report(
     if desktop_export_dir is not None:
         md.append(f"- **Copied to Downloads folder**: `{desktop_export_dir}`")
     md.append("")
-    md.append("</details>")
-    md.append("")
-    md.append("<details>")
-    md.append("<summary><b>Top items (for review)</b></summary>")
+    md.append("## Top items (for review)")
     md.append("")
     md.append("### Addresses with the most contacts / collisions (top 10)")
     md.append("")
@@ -1109,7 +1090,99 @@ def write_client_markdown_report(
     md.append("")
     md.append(_df_to_markdown_table(emails_global_df, ["email", "address_count", "occurrences", "unique_names"], max_rows=10))
     md.append("")
-    md.append("</details>")
+
+    report_md_path.parent.mkdir(parents=True, exist_ok=True)
+    report_md_path.write_text("\n".join(md).rstrip() + "\n", encoding="utf-8")
+
+
+def write_client_share_report(
+    report_md_path: Path,
+    *,
+    desired_path: Path | None,
+    contacts_path: Path,
+    out_xlsx_path: Path,
+    out_csv_path: Path,
+    report_summary: dict[str, Any],
+    addr_report_df: pd.DataFrame,
+    phones_global_df: pd.DataFrame,
+    emails_global_df: pd.DataFrame,
+) -> None:
+    """
+    Short, non-technical report intended to be sent to someone.
+    Focuses on: what was uploaded vs what was produced, and what was fixed.
+    """
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    desired_rows = int(report_summary.get("desired_outcome_rows", 0))
+    desired_unique = int(report_summary.get("desired_outcome_unique_addresses", 0))
+    deduped = int(report_summary.get("desired_outcome_duplicate_rows_eliminated", 0))
+    contacts_rows = int(report_summary.get("contacts_rows", 0))
+    contacts_unique_addresses = int(report_summary.get("contacts_unique_addresses", 0))
+    addr_phone_collisions = int(report_summary.get("addresses_with_phone_collisions", 0))
+    addr_email_collisions = int(report_summary.get("addresses_with_email_collisions", 0))
+
+    likely_owner_contacts = 0
+    if not addr_report_df.empty and "likely_owner_contacts" in addr_report_df.columns:
+        try:
+            likely_owner_contacts = int(addr_report_df["likely_owner_contacts"].sum())
+        except Exception:  # noqa: BLE001
+            likely_owner_contacts = 0
+
+    addresses_with_multiple_contacts = 0
+    if not addr_report_df.empty and "contacts_rows" in addr_report_df.columns:
+        try:
+            addresses_with_multiple_contacts = int((addr_report_df["contacts_rows"] > 1).sum())
+        except Exception:  # noqa: BLE001
+            addresses_with_multiple_contacts = 0
+
+    phones_reused_across_addresses = 0
+    if not phones_global_df.empty and "address_count" in phones_global_df.columns:
+        try:
+            phones_reused_across_addresses = int((phones_global_df["address_count"] > 1).sum())
+        except Exception:  # noqa: BLE001
+            phones_reused_across_addresses = 0
+
+    emails_reused_across_addresses = 0
+    if not emails_global_df.empty and "address_count" in emails_global_df.columns:
+        try:
+            emails_reused_across_addresses = int((emails_global_df["address_count"] > 1).sum())
+        except Exception:  # noqa: BLE001
+            emails_reused_across_addresses = 0
+
+    md: list[str] = []
+    md.append("## Pete import cleanup summary (shareable)")
+    md.append("")
+    md.append(f"- **Created**: {created_at}")
+    md.append("")
+    md.append("## What you uploaded")
+    md.append("")
+    md.append(f"- **Contacts CSV**: `{contacts_path}` ({contacts_rows} rows)")
+    if desired_path is not None:
+        md.append(f"- **Desired-outcome / properties export**: `{desired_path}` ({desired_rows} rows)")
+    else:
+        md.append(f"- **Properties list**: derived from contacts ({desired_rows} property rows)")
+    md.append("")
+    md.append("## What we produced (what to upload to Pete)")
+    md.append("")
+    md.append(f"- **Pete import workbook (XLSX)**: `{out_xlsx_path}`")
+    md.append(f"- **Pete import CSV (optional)**: `{out_csv_path}`")
+    md.append("")
+    md.append("## What was fixed / improved")
+    md.append("")
+    md.append(f"- **Duplicate properties removed**: {deduped} (final properties: {desired_unique})")
+    md.append(f"- **Unique addresses found in contacts**: {contacts_unique_addresses}")
+    md.append(f"- **Addresses with multiple contacts**: {addresses_with_multiple_contacts}")
+    md.append(f"- **Likely Owner flags found (contacts)**: {likely_owner_contacts}")
+    md.append(f"- **Addresses with duplicate phones**: {addr_phone_collisions}")
+    md.append(f"- **Addresses with duplicate emails**: {addr_email_collisions}")
+    md.append(f"- **Phone numbers reused across addresses**: {phones_reused_across_addresses}")
+    md.append(f"- **Emails reused across addresses**: {emails_reused_across_addresses}")
+    md.append("")
+    md.append("## Import safety rules we apply")
+    md.append("")
+    md.append("- Phone numbers are normalized to **digits only** (no punctuation, no `.0`).")
+    md.append("- Output fields have **no commas or newlines** (prevents mangled imports).")
+    md.append("- ZIP is removed from `Full Address` and kept only in `Zip Code`.")
+    md.append("")
 
     report_md_path.parent.mkdir(parents=True, exist_ok=True)
     report_md_path.write_text("\n".join(md).rstrip() + "\n", encoding="utf-8")
@@ -1434,9 +1507,10 @@ def run_build(
             date_format=str(desktop_subfolder_date_format),
         )
 
-        write_client_markdown_report(
-            tracker.runs_dir / f"{tracker.run_id}.report.md",
-            desired_path=desired_path,
+        write_staging_markdown_report(
+            # Detailed staging report (for operator / internal review)
+            tracker.runs_dir / f"{tracker.run_id}.staging_report.md",
+            desired_path=desired_path if desired_path is not None else Path("None"),
             contacts_path=contacts_path,
             template_path=template_path,
             out_xlsx_path=out_path,
@@ -1452,12 +1526,25 @@ def run_build(
             global_phones_csv_path=report_global_phones_csv,
             global_emails_csv_path=report_global_emails_csv,
         )
-        # Keep legacy global path for convenience/backward compatibility.
+        # Short shareable client report (no collapses; intended to send to someone).
+        write_client_share_report(
+            tracker.runs_dir / f"{tracker.run_id}.client_report.md",
+            desired_path=desired_path,
+            contacts_path=contacts_path,
+            out_xlsx_path=out_path,
+            out_csv_path=out_csv_path,
+            report_summary=report,
+            addr_report_df=addr_report_df,
+            phones_global_df=phones_global_df,
+            emails_global_df=emails_global_df,
+        )
+
+        # Keep legacy global path for convenience/backward compatibility (staging report).
         try:
             legacy = Path(report_md)
             if legacy:
                 legacy.write_text(
-                    (tracker.runs_dir / f"{tracker.run_id}.report.md").read_text(encoding="utf-8"),
+                    (tracker.runs_dir / f"{tracker.run_id}.staging_report.md").read_text(encoding="utf-8"),
                     encoding="utf-8",
                 )
         except Exception:  # noqa: BLE001 - best-effort legacy write
@@ -1491,8 +1578,10 @@ def run_build(
         tracker.set_output("out_xlsx", out_path)
         tracker.set_output("out_csv", out_csv_path)
         tracker.set_output("seller_summary_csv", seller_summary_csv_path)
-        # Prefer run-scoped report for UI correctness; legacy global report is still written.
-        tracker.set_output("report_md", tracker.runs_dir / f"{tracker.run_id}.report.md")
+        # Client-facing shareable report for the UI "Report" button.
+        tracker.set_output("report_md", tracker.runs_dir / f"{tracker.run_id}.client_report.md")
+        # Detailed staging report for operator review.
+        tracker.set_output("staging_report_md", tracker.runs_dir / f"{tracker.run_id}.staging_report.md")
 
         # Template mapping manifest (one row per template column)
         try:

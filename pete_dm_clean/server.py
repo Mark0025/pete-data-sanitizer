@@ -1040,6 +1040,42 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
 
         return PlainTextResponse(report_path.read_text(encoding="utf-8"))
 
+    @fastapi_app.get("/runs/{run_id}/staging_report", response_class=HTMLResponse)
+    def runs_staging_report(request: Request, run_id: str, company_id: str | None = None):
+        raw = f"/runs/{run_id}/staging_report/raw" + (f"?company_id={company_id}" if company_id else "")
+        return templates.TemplateResponse(
+            "markdown_view.html",
+            {
+                "request": request,
+                "title": "Staging report",
+                "heading": "Staging report (detailed)",
+                "run_id": run_id,
+                "company_id": company_id or "",
+                "raw_url": raw,
+                "raw_fetch_url": raw,
+            },
+        )
+
+    @fastapi_app.get("/runs/{run_id}/staging_report/raw", response_class=PlainTextResponse)
+    def runs_staging_report_raw(run_id: str, company_id: str | None = None):
+        runs_dir = _scoped_runs_dir(company_id)
+        run_json = runs_dir / f"{run_id}.json"
+        if not run_json.exists():
+            raise HTTPException(status_code=404, detail="run json not found")
+
+        try:
+            import json
+
+            run = json.loads(run_json.read_text(encoding="utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=500, detail="failed to read run json") from exc
+
+        outputs = (run.get("outputs") or {}) if isinstance(run.get("outputs"), dict) else {}
+        p = Path(outputs.get("staging_report_md") or "")
+        if not str(p) or not p.exists():
+            raise HTTPException(status_code=404, detail="staging report not found for run_id")
+        return PlainTextResponse(p.read_text(encoding="utf-8"))
+
     @fastapi_app.get("/download/{run_id}/{key}", response_class=FileResponse)
     def download_artifact(run_id: str, key: str, company_id: str | None = None):
         """
