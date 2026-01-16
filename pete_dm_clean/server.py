@@ -722,7 +722,7 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
 
     # ---- Runs: pretty HTML view + raw markdown ----
     @fastapi_app.get("/runs/{run_id}/summary", response_class=HTMLResponse)
-    def runs_summary(run_id: str, company_id: str | None = None, request: Request | None = None):
+    def runs_summary(request: Request, run_id: str, company_id: str | None = None):
         raw = f"/runs/{run_id}/summary/raw" + (f"?company_id={company_id}" if company_id else "")
         return templates.TemplateResponse(
             "markdown_view.html",
@@ -745,7 +745,7 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
         return PlainTextResponse(path.read_text(encoding="utf-8"))
 
     @fastapi_app.get("/runs/{run_id}/debug", response_class=HTMLResponse)
-    def runs_debug(run_id: str, company_id: str | None = None, request: Request | None = None):
+    def runs_debug(request: Request, run_id: str, company_id: str | None = None):
         raw = f"/runs/{run_id}/debug/raw" + (f"?company_id={company_id}" if company_id else "")
         return templates.TemplateResponse(
             "markdown_view.html",
@@ -768,7 +768,7 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
         return PlainTextResponse(path.read_text(encoding="utf-8"))
 
     @fastapi_app.get("/runs/{run_id}/mapping", response_class=HTMLResponse)
-    def runs_mapping(run_id: str, company_id: str | None = None, request: Request | None = None):
+    def runs_mapping(request: Request, run_id: str, company_id: str | None = None):
         raw = f"/runs/{run_id}/mapping/raw" + (f"?company_id={company_id}" if company_id else "")
         return templates.TemplateResponse(
             "markdown_view.html",
