@@ -374,6 +374,10 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
             paths = company_paths(uploads_dir=uploads_p, company_id=company_id)
             ensure_company_dirs(paths)
             inputs_dir = paths.inputs_dir
+            # Mirror build behavior: if client scope has no CSVs and user left "(auto)",
+            # fall back to shared uploads so preview can still work.
+            if (not desired_outcome) and (not contacts) and (not _has_any_csv(inputs_dir)):
+                inputs_dir = uploads_p
 
         # Resolve template similar to build
         if template:
@@ -391,7 +395,27 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
         desired_p = (inputs_dir / desired_outcome) if desired_outcome else None
         contacts_p = (inputs_dir / contacts) if contacts else None
         if contacts_p is None:
-            return HTMLResponse("<div class='muted'>Select a contacts CSV first.</div>", status_code=400)
+            # Treat "(auto)" like build does: pick a contacts CSV if any exist.
+            try:
+                import csv as _csv
+
+                def header_has(path: Path, col: str) -> bool:
+                    try:
+                        with path.open("r", encoding="utf-8", errors="ignore", newline="") as f:
+                            reader = _csv.reader(f)
+                            header = next(reader, [])
+                        return col in {h.strip() for h in header}
+                    except Exception:
+                        return False
+
+                candidates = sorted(inputs_dir.glob("*.csv"))
+                best = next((p for p in candidates if header_has(p, "associated_property_address_full")), None)
+                contacts_p = best or (candidates[0] if candidates else None)
+            except Exception:
+                contacts_p = None
+
+        if contacts_p is None or not Path(contacts_p).exists():
+            return HTMLResponse("<div class='muted'>No contacts CSV found in this client workspace yet.</div>", status_code=400)
 
         try:
             import html as _html
