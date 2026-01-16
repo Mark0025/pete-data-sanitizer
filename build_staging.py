@@ -877,20 +877,27 @@ def export_prefix_from_input_filename(filename: str) -> str:
     Build a stable export prefix from an uploaded input filename.
 
     Example:
-      "Lake City FL - Leads (1).csv" -> "Lake.City.FL.-.Leads.(1).CLEAN"
+      "Lake City FL - Leads (1).csv" -> "lake-city-fl-leads.pete.clean"
     """
     stem = Path(filename).stem.strip()
     if not stem:
-        return "EXPORT.CLEAN"
-    # Keep it filename-friendly and dot-separated (matches existing export naming style).
-    s = re.sub(r"[^\w\s\-.()]+", "", stem, flags=re.UNICODE).strip()
-    s = re.sub(r"\s+", ".", s)
-    s = re.sub(r"\.+", ".", s).strip(".")
-    if not s:
-        s = "EXPORT"
-    if not s.upper().endswith(".CLEAN") and not s.upper().endswith("CLEAN"):
-        s = f"{s}.CLEAN"
-    return s
+        return "export.pete.clean"
+
+    # Lowercase slug: keep alnum, convert separators to hyphens.
+    s = stem.lower()
+    s = re.sub(r"[^\w\s-]+", " ", s)  # drop punctuation like "(1)" but keep contents as tokens
+    s = re.sub(r"[_\s]+", "-", s)
+    s = re.sub(r"-{2,}", "-", s).strip("-")
+
+    # Drop purely numeric trailing token(s) (e.g., "-1" from copies).
+    parts = [p for p in s.split("-") if p]
+    while parts and re.fullmatch(r"\d+", parts[-1] or ""):
+        parts.pop()
+
+    # Keep it short: first 6 tokens is plenty for homelab import naming.
+    parts = parts[:6] if parts else ["export"]
+    base = "-".join(parts)
+    return f"{base}.pete.clean"
 
 
 def randomize_external_ids(
