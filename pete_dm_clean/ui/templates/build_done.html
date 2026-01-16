@@ -33,6 +33,7 @@
         <div class="muted">Open</div>
         <p>
           <a class="btn" href="/runs/{{ run_id }}/summary{% if company_id %}?company_id={{ company_id }}{% endif %}">Summary</a>
+          <a class="btn" href="/runs/{{ run_id }}/report{% if company_id %}?company_id={{ company_id }}{% endif %}">Report</a>
           <a class="btn" href="/runs/{{ run_id }}/mapping{% if company_id %}?company_id={{ company_id }}{% endif %}">Mapping</a>
           <a class="btn" href="/diagram/{{ acki }}">Acki</a>
           {% if deep_exists %}
