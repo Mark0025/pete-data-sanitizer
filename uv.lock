@@ -36,7 +36,7 @@ wheels = [
 [[package]]
 name = "app"
 version = "0.0.6"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
