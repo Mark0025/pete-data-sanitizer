@@ -786,9 +786,70 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
     @fastapi_app.get("/runs/{run_id}/mapping/raw", response_class=PlainTextResponse)
     def runs_mapping_raw(run_id: str, company_id: str | None = None):
         path = _run_md_path(company_id, run_id, "mapping")
-        if not path.exists():
+        if path.exists():
+            return PlainTextResponse(path.read_text(encoding="utf-8"))
+
+        # Backfill for older runs (before mapping manifests existed):
+        # Try to synthesize mapping from run JSON + template + output file.
+        runs_dir = _scoped_runs_dir(company_id)
+        run_json = runs_dir / f"{run_id}.json"
+        if not run_json.exists():
             raise HTTPException(status_code=404, detail="mapping manifest not found for run_id")
-        return PlainTextResponse(path.read_text(encoding="utf-8"))
+
+        try:
+            import json
+            import pandas as pd
+
+            from build_staging import build_mapping_manifest
+
+            run = json.loads(run_json.read_text(encoding="utf-8"))
+            outputs = (run.get("outputs") or {}) if isinstance(run.get("outputs"), dict) else {}
+            inputs = (run.get("inputs") or {}) if isinstance(run.get("inputs"), dict) else {}
+            summary = (run.get("summary") or {}) if isinstance(run.get("summary"), dict) else {}
+            gen_settings = (summary.get("generator_settings") or {}) if isinstance(summary.get("generator_settings"), dict) else {}
+
+            template_path = Path(inputs.get("template") or summary.get("template_path") or "")
+            if not template_path.exists():
+                raise HTTPException(status_code=404, detail="mapping not available (template missing)")
+
+            # Prefer CSV for speed; otherwise fall back to XLSX.
+            out_path = Path(outputs.get("out_csv") or outputs.get("out_xlsx") or "")
+            if not out_path.exists():
+                raise HTTPException(status_code=404, detail="mapping not available (output missing)")
+
+            if out_path.suffix.lower() == ".csv":
+                staging_df = pd.read_csv(out_path, dtype=str, keep_default_na=False)
+            else:
+                staging_df = pd.read_excel(out_path)
+
+            # Template columns (header-only)
+            tdf = pd.read_excel(template_path, nrows=0)
+            template_columns = [str(c) for c in tdf.columns.tolist()]
+
+            rows, md = build_mapping_manifest(
+                template_columns=template_columns,
+                contacts_only=bool(gen_settings.get("contacts_only", False)),
+                randomize_external_ids=bool(gen_settings.get("randomize_external_ids", False)),
+                external_id_digits=int(gen_settings.get("external_id_digits", 7) or 7),
+                max_sellers=int(gen_settings.get("max_sellers", 5) or 5),
+                staging_df=staging_df,
+            )
+
+            # Write back so future loads don't recompute.
+            try:
+                path.write_text(md, encoding="utf-8")
+                (runs_dir / f"{run_id}.mapping.json").write_text(
+                    json.dumps(rows, indent=2),
+                    encoding="utf-8",
+                )
+            except Exception:
+                pass
+
+            return PlainTextResponse(md)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=500, detail="failed to build mapping manifest") from exc
 
     @fastapi_app.get("/download/{run_id}/{key}", response_class=FileResponse)
     def download_artifact(run_id: str, key: str, company_id: str | None = None):
