@@ -301,6 +301,31 @@ def sanitize_for_import(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def strip_zip_from_full_address(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Remove trailing ZIP codes from the `Full Address` column.
+
+    Examples:
+    - "101 Ne Omar Ter Lake City Fl 32055" -> "101 Ne Omar Ter Lake City Fl"
+    - "101 Ne Omar Ter, Lake City, FL 32055-1234" -> "101 Ne Omar Ter, Lake City, FL"
+    """
+    if df.empty or "Full Address" not in df.columns:
+        return df
+    out = df.copy()
+
+    def fix(v: Any) -> str:
+        s = _norm(v)
+        if not s:
+            return ""
+        # Remove trailing ZIP (5 or 9-digit) and trailing separators/spaces.
+        s = re.sub(r"\s+\d{5}(?:-\d{4})?\s*$", "", s)
+        s = re.sub(r"[,\s]+$", "", s)
+        return s
+
+    out["Full Address"] = out["Full Address"].map(fix)
+    return out
+
+
 def _mapping_entry(*, column: str, source: str, rule: str, example: str) -> dict[str, str]:
     return {"template_column": column, "source": source, "rule": rule, "example": example}
 
@@ -354,7 +379,7 @@ def build_mapping_manifest(
                 else "Copied from input External Id when present (may be blank)."
             ),
         ),
-        "Full Address": (prop_source, "One row per address (deduped)."),
+        "Full Address": (prop_source, "One row per address (deduped); ZIP removed from Full Address."),
         "Street": (prop_source, "From input Property Street (contacts-only derives from parsed address when possible)."),
         "City": (prop_source, "From input Property City (contacts-only derives from parsed address when possible)."),
         "State": (prop_source, "From input Property State (contacts-only derives from parsed address when possible)."),
@@ -1319,6 +1344,8 @@ def run_build(
             staging_df = normalize_phone_columns(staging_df)
             # Avoid commas/newlines in cells for safer imports.
             staging_df = sanitize_for_import(staging_df)
+            # Keep ZIP only in the Zip Code column (remove from Full Address).
+            staging_df = strip_zip_from_full_address(staging_df)
             with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
                 staging_df.to_excel(writer, sheet_name="Sheet1", index=False)
 
