@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="grid">
+    <div class="card">
+      <h3>Template preview</h3>
+      <div class="muted">Template path</div>
+      <div class="mono" style="margin-bottom:10px">{{ template_path }}</div>
+      {% if template_cols and template_cols|length > 0 %}
+        <div class="muted">Columns ({{ template_cols|length }})</div>
+        <pre class="mono">{{ template_cols | join("\n") }}</pre>
+      {% else %}
+        <div class="muted">Could not load template columns (missing file or parse error).</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Latest run quick links</h3>
+      {% if latest_run_id %}
+        <div class="mono">{{ latest_run_id }}</div>
+        <div style="height:10px"></div>
+        <a class="btn" href="/runs/{{ latest_run_id }}/summary">Summary</a>
+        {% if latest_has_debug %}
+          <a class="btn" href="/runs/{{ latest_run_id }}/debug">Debug</a>
+          <a class="btn" href="/diagram/acki_run_{{ latest_run_id }}.deep">Acki.deep</a>
+        {% endif %}
+        <a class="btn" href="/diagram/acki_run_{{ latest_run_id }}">Acki</a>
+      {% else %}
+        <div class="muted">No runs yet.</div>
+      {% endif %}
+      <div style="height:12px"></div>
+      <div class="muted">
+        Preview is intentionally lightweight right now. Next step is a “staging preview” (sample rows) before exporting.
+      </div>
+    </div>
+  </div>
+{% endblock %}
+

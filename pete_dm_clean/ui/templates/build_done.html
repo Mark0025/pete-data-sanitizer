@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card">
+    <h3>Build complete</h3>
+    <div class="row">
+      <div>
+        <div class="muted">run_id</div>
+        <div class="mono">{{ run_id }}</div>
+      </div>
+      <div style="text-align:right">
+        <a class="btn" href="/ui{% if company_id %}?company_id={{ company_id }}{% endif %}">Back to dashboard</a>
+      </div>
+    </div>
+    <div style="height:12px"></div>
+    <div class="row">
+      <div>
+        <div class="muted">Outputs</div>
+        <ul>
+          <li class="mono">{{ out_xlsx }}</li>
+          <li class="mono">{{ out_csv }}</li>
+          <li class="mono">{{ seller_summary_csv }}</li>
+          <li class="mono">{{ report_md }}</li>
+        </ul>
+        {% if desktop_export_dir %}
+          <div class="muted">Copied to Downloads</div>
+          <div class="mono">{{ desktop_export_dir }}</div>
+        {% else %}
+          <div class="muted">Downloads copy</div>
+          <div class="muted">Not copied (either disabled, or copy failed).</div>
+        {% endif %}
+      </div>
+      <div>
+        <div class="muted">Open</div>
+        <p>
+          <a class="btn" href="/runs/{{ run_id }}/summary{% if company_id %}?company_id={{ company_id }}{% endif %}">Summary</a>
+          <a class="btn" href="/runs/{{ run_id }}/mapping{% if company_id %}?company_id={{ company_id }}{% endif %}">Mapping</a>
+          <a class="btn" href="/diagram/{{ acki }}">Acki</a>
+          {% if deep_exists %}
+            <a class="btn" href="/runs/{{ run_id }}/debug{% if company_id %}?company_id={{ company_id }}{% endif %}">Debug</a>
+            <a class="btn" href="/diagram/{{ acki }}.deep">Acki.deep</a>
+          {% endif %}
+        </p>
+        <div class="muted">Download</div>
+        <p>
+          <a class="btn" href="/download/{{ run_id }}/out_xlsx{% if company_id %}?company_id={{ company_id }}{% endif %}">XLSX</a>
+          <a class="btn" href="/download/{{ run_id }}/out_csv{% if company_id %}?company_id={{ company_id }}{% endif %}">CSV</a>
+          <a class="btn" href="/download/{{ run_id }}/seller_summary_csv{% if company_id %}?company_id={{ company_id }}{% endif %}">Seller summary</a>
+          <a class="btn" href="/download/{{ run_id }}/report_md{% if company_id %}?company_id={{ company_id }}{% endif %}">Report (md)</a>
+        </p>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+

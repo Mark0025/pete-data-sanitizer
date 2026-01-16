@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title or "pete DM clean" }}</title>
+    <style>
+      :root { --bg:#0b0f17; --card:#121826; --text:#e5e7eb; --muted:#94a3b8; --accent:#60a5fa; --border:#243041; }
+      body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background: var(--bg); color: var(--text); }
+      a { color: var(--accent); text-decoration:none; }
+      a:hover { text-decoration:underline; }
+      header { padding: 18px 22px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(11,15,23,0.95); backdrop-filter: blur(8px); }
+      header .row { display:flex; align-items:center; justify-content:space-between; gap: 12px; }
+      header nav a { margin-right: 14px; color: var(--text); }
+      header nav a:hover { color: var(--accent); }
+      .container { max-width: 1200px; margin: 0 auto; padding: 22px; }
+      .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+      .card h3 { margin: 0 0 10px 0; font-size: 16px; }
+      .muted { color: var(--muted); }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      .btn { display:inline-block; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0f172a; color: var(--text); cursor:pointer; }
+      .btn:hover { border-color: #3b82f6; }
+      .btn.primary { background: #1d4ed8; border-color: #1d4ed8; }
+      .btn.primary:hover { background:#2563eb; border-color:#2563eb; }
+      label { display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+      input[type="text"], input[type="number"], select { width: 100%; padding: 10px 10px; border-radius: 10px; border: 1px solid var(--border); background:#0b1220; color: var(--text); }
+      input[type="file"] { width: 100%; }
+      .row { display:flex; gap: 12px; align-items:flex-end; }
+      .row > div { flex: 1; }
+      pre { white-space: pre-wrap; background:#0b1220; border: 1px solid var(--border); border-radius: 12px; padding: 12px; overflow:auto; }
+      table { width:100%; border-collapse: collapse; font-size: 13px; }
+      th, td { border-bottom: 1px solid var(--border); padding: 8px; text-align:left; }
+      th { color: var(--muted); font-weight:600; }
+      .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; }
+      .ok { border-color:#16a34a; color:#86efac; }
+      .warn { border-color:#f59e0b; color:#fde68a; }
+      .fail { border-color:#ef4444; color:#fecaca; }
+      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } header nav { display:none; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <div>
+          <div style="font-weight:700">pete DM clean</div>
+          <div class="muted" style="font-size:12px">Uploads → Build → Runs → Diagrams</div>
+        </div>
+        <nav>
+          <a href="/ui">Dashboard</a>
+          <a href="/ui/preview">Preview</a>
+          <a href="/ui/settings">Settings</a>
+          <a href="/">Classic index</a>
+        </nav>
+      </div>
+    </header>
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
+  </body>
+</html>
+

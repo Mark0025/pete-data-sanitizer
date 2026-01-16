@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card" style="margin-bottom:16px">
+    <h3>TL;DR (how to use this UI)</h3>
+    <ol>
+      <li><b>Create or select a Client</b>. This keeps each client’s files and runs separate.</li>
+      <li><b>Upload the inputs</b> for that client:
+        <ul>
+          <li><span class="mono">desired_outcome</span> CSV</li>
+          <li><span class="mono">contacts</span> CSV</li>
+          <li><span class="mono">template</span> XLSX (optional; defaults to Properties Template (15))</li>
+        </ul>
+      </li>
+      <li><b>Build</b>: choose your export name settings, optionally enable <b>debug report + deep diagram</b>, then click <b>Run build</b>.</li>
+    </ol>
+    <div class="muted">
+      Tip: if you select “(auto)” in Build, the app only auto-detects files inside the <b>selected client</b>.
+      If that client has no uploads yet, Build will tell you to upload/select inputs first.
+    </div>
+    <div class="muted" style="margin-top:8px">
+      If you just created a new client and haven’t uploaded files yet, “(auto)” will fall back to the shared uploads so you can still run a build.
+      Best practice is to upload the files into the client workspace.
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h3>Client</h3>
+    <div class="row">
+      <div>
+        <label>Selected client</label>
+        <form method="get" action="/ui">
+          <select name="company_id" onchange="this.form.submit()">
+            <option value="">(none / shared)</option>
+            {% for c in companies %}
+              <option value="{{ c.id }}" {% if c.id == company_id %}selected{% endif %}>
+                {{ c.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+      <div>
+        <label>Create new client</label>
+        <form method="post" action="/ui/company/create">
+          <div class="row">
+            <div><input type="text" name="company_name" placeholder="Client name" required /></div>
+            <div style="flex:0"><button class="btn" type="submit">Create</button></div>
+          </div>
+          <div class="muted" style="margin-top:6px">Creates a new client workspace for uploads/exports/runs/diagrams.</div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Build</h3>
+      <div class="muted" style="margin-bottom:10px">Select inputs and choose export naming.</div>
+      <form method="post" action="/ui/build">
+        <input type="hidden" name="company_id" value="{{ company_id }}" />
+        <div class="row">
+          <div>
+            <label><input type="checkbox" name="contacts_only" value="true" checked /> I only have a contacts CSV (build property list from contacts)</label>
+            <div class="muted">
+              If enabled, Desired outcome can stay “(auto)”.
+              We will dedupe addresses from the contacts file and fill seller fields; property-only fields may be blank/default.
+              The contacts CSV should include <span class="mono">associated_property_address_full</span>.
+            </div>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+        <div class="row">
+          <div>
+            <label>
+              Desired outcome CSV
+              <button type="button" class="btn" style="padding:2px 8px; border-radius:999px; margin-left:6px" onclick="openHelp('desired_outcome')">?</button>
+            </label>
+            <select name="desired_outcome" id="desired_outcome_select">
+              <option value="">(auto)</option>
+              {% for p in candidates.desired_outcome %}
+                <option value="{{ p.name }}">{{ p.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>
+              Contacts CSV
+              <button type="button" class="btn" style="padding:2px 8px; border-radius:999px; margin-left:6px" onclick="openHelp('contacts')">?</button>
+            </label>
+            <select name="contacts" id="contacts_select">
+              <option value="">(auto)</option>
+              {% for p in candidates.contacts %}
+                <option value="{{ p.name }}">{{ p.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row">
+          <div>
+            <label>Template XLSX</label>
+            <select name="template">
+              <option value="">uploads/templates/Properties Template (15).xlsx</option>
+              {% for p in candidates.template %}
+                <option value="{% if 'templates' in p.parts %}templates/{{ p.name }}{% else %}{{ p.name }}{% endif %}">
+                  {% if 'templates' in p.parts %}templates/{{ p.name }}{% else %}{{ p.name }}{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>Max sellers</label>
+            <input type="number" name="max_sellers" value="5" min="1" max="20"/>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row">
+          <div>
+            <label>Export prefix</label>
+            <input type="text" name="export_prefix" value="PETE.DM.FERNANDO.CLEAN"/>
+          </div>
+          <div>
+            <label>Date format</label>
+            <input type="text" name="export_date_format" value="%m.%d.%y"/>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row">
+          <div>
+            <label><input type="checkbox" name="export_prefix_from_input" value="true" /> Use input filename as export prefix (adds <span class="mono">.CLEAN</span>)</label>
+            <div class="muted">
+              If enabled, exports will use the selected input filename (without .csv) as the prefix.
+            </div>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row">
+          <div>
+            <label><input type="checkbox" name="debug_report" value="true" /> Generate debug report + deep diagram</label>
+          </div>
+          <div>
+            <label><input type="checkbox" name="no_desktop_copy" value="true" /> Do not copy to Downloads</label>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row">
+          <div>
+            <label><input type="checkbox" name="randomize_external_ids" value="true" /> Randomize External Ids</label>
+            <div class="muted">
+              Useful when imports partially load due to duplicate/blank External Ids. IDs are randomized per output row.
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>External Id seed (optional)</label>
+            <input type="number" name="external_id_seed" placeholder="(leave blank for random)" />
+          </div>
+          <div>
+            <label>External Id digits</label>
+            <input type="number" name="external_id_digits" value="10" min="6" max="32"/>
+          </div>
+        </div>
+
+        <div style="height:12px"></div>
+        <button class="btn primary" type="submit">Run build</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Upload</h3>
+      <div class="muted" style="margin-bottom:10px">Upload new inputs into <span class="mono">{{ uploads_dir }}</span>.</div>
+      <form method="post" action="/ui/upload" enctype="multipart/form-data">
+        <input type="hidden" name="company_id" value="{{ company_id }}" />
+        <div class="row">
+          <div>
+            <label>Type</label>
+            <select name="kind">
+              <option value="desired_outcome">desired_outcome (CSV)</option>
+              <option value="contacts">contacts (CSV)</option>
+              <option value="template">template (XLSX)</option>
+            </select>
+          </div>
+          <div>
+            <label>File</label>
+            <input type="file" name="file" required />
+          </div>
+        </div>
+        <div style="height:12px"></div>
+        <button class="btn" type="submit">Upload</button>
+      </form>
+      <div style="height:10px"></div>
+      <div class="muted">Tip: templates are saved under <span class="mono">uploads/templates/</span>.</div>
+    </div>
+  </div>
+
+  <div style="height:16px"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Latest run</h3>
+      {% if latest_run_id %}
+        <div>
+          <span class="mono">{{ latest_run_id }}</span>
+        </div>
+        <div style="height:8px"></div>
+        <a class="btn" href="/runs/{{ latest_run_id }}/summary{% if company_id %}?company_id={{ company_id }}{% endif %}">Summary</a>
+        <a class="btn" href="/runs/{{ latest_run_id }}/mapping{% if company_id %}?company_id={{ company_id }}{% endif %}">Mapping</a>
+        {% if latest_has_debug %}
+          <a class="btn" href="/runs/{{ latest_run_id }}/debug{% if company_id %}?company_id={{ company_id }}{% endif %}">Debug</a>
+        {% endif %}
+        <a class="btn" href="/diagram/acki_run_{{ latest_run_id }}">Acki</a>
+        {% if latest_has_debug %}
+          <a class="btn" href="/diagram/acki_run_{{ latest_run_id }}.deep">Acki.deep</a>
+        {% endif %}
+      {% else %}
+        <div class="muted">No runs yet. Run a build.</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Recent runs</h3>
+      <table>
+        <thead><tr><th>run_id</th><th>links</th></tr></thead>
+        <tbody>
+        {% for r in recent_runs %}
+          <tr>
+            <td class="mono">{{ r.run_id }}</td>
+            <td>
+              <a href="/runs/{{ r.run_id }}/summary{% if company_id %}?company_id={{ company_id }}{% endif %}">summary</a>
+              | <a href="/runs/{{ r.run_id }}/mapping{% if company_id %}?company_id={{ company_id }}{% endif %}">mapping</a>
+              {% if r.has_debug %} | <a href="/runs/{{ r.run_id }}/debug{% if company_id %}?company_id={{ company_id }}{% endif %}">debug</a>{% endif %}
+              | <a href="/diagram/acki_run_{{ r.run_id }}">acki</a>
+              {% if r.has_debug %} | <a href="/diagram/acki_run_{{ r.run_id }}.deep">acki.deep</a>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="height:16px"></div>
+
+  <div class="card">
+    <h3>Diagrams</h3>
+    <div class="muted" style="margin-bottom:10px">All flow diagrams in <span class="mono">uploads/flowcharts/</span>.</div>
+    <ul>
+      {% for n in diagrams %}
+        <li><a href="/diagram/{{ n }}">{{ n }}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <!-- Help modal -->
+  <div id="helpModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);">
+    <div class="card" style="max-width: 980px; margin: 60px auto; position:relative;">
+      <div class="row" style="align-items:center; justify-content:space-between;">
+        <h3 id="helpTitle" style="margin:0">Help</h3>
+        <button class="btn" type="button" onclick="closeHelp()">Close</button>
+      </div>
+      <div id="helpBody" class="muted" style="margin-top:10px"></div>
+      <div style="height:12px"></div>
+      <div id="helpPreview" style="overflow:auto; max-height:380px"></div>
+      <div style="height:12px"></div>
+      <div id="helpOutcome" style="overflow:auto; max-height:380px"></div>
+      <div class="muted" style="margin-top:10px">This pop-up auto-closes after ~5 seconds.</div>
+    </div>
+  </div>
+
+  <script>
+    let helpTimer = null;
+    function closeHelp() {
+      const m = document.getElementById('helpModal');
+      m.style.display = 'none';
+      if (helpTimer) { clearTimeout(helpTimer); helpTimer = null; }
+    }
+
+    async function openHelp(kind) {
+      const m = document.getElementById('helpModal');
+      const title = document.getElementById('helpTitle');
+      const body = document.getElementById('helpBody');
+      const prev = document.getElementById('helpPreview');
+      const out = document.getElementById('helpOutcome');
+
+      const companyId = "{{ company_id }}";
+      let filename = "";
+      if (kind === "desired_outcome") {
+        filename = document.getElementById("desired_outcome_select").value;
+        title.textContent = "What is “Desired outcome”?";
+        body.innerHTML = `
+          <div><b>Desired outcome</b> is the DealMachine <b>properties export</b> where each row is a <i>contact</i> for a property.</div>
+          <div style="margin-top:6px">That means the <b>same address repeats</b>. Our job is to <b>dedupe</b> to <b>one row per address</b> for the final import file.</div>
+          <div style="margin-top:6px"><b>What to look for:</b> columns like <span class="mono">Full Address</span>, <span class="mono">Property City</span>, <span class="mono">Property ZIP</span>.</div>
+        `;
+      } else {
+        filename = document.getElementById("contacts_select").value;
+        title.textContent = "What is “Contacts” here?";
+        body.innerHTML = `
+          <div><b>Contacts</b> is the DealMachine contacts export (phones, emails, and flags like “Likely Owner”).</div>
+          <div style="margin-top:6px">We match contacts to the property address and fill <b>Seller / Seller2 / Seller3</b> fields in the template.</div>
+        `;
+      }
+
+      prev.innerHTML = "<div class='muted'>Loading preview…</div>";
+      out.innerHTML = "<div class='muted'>Loading outcome preview…</div>";
+      m.style.display = 'block';
+
+      try {
+        const url = `/ui/preview_snippet?company_id=${encodeURIComponent(companyId)}&kind=${encodeURIComponent(kind)}&filename=${encodeURIComponent(filename)}&n=5`;
+        const res = await fetch(url);
+        prev.innerHTML = await res.text();
+      } catch (e) {
+        prev.innerHTML = "<div class='muted'>Could not load preview.</div>";
+      }
+
+      try {
+        const url2 = `/ui/output_preview_snippet?company_id=${encodeURIComponent(companyId)}&n=5`;
+        const res2 = await fetch(url2);
+        out.innerHTML = await res2.text();
+      } catch (e) {
+        out.innerHTML = "<div class='muted'>Could not load outcome preview.</div>";
+      }
+
+      if (helpTimer) clearTimeout(helpTimer);
+      helpTimer = setTimeout(closeHelp, 5000);
+    }
+
+    document.getElementById('helpModal').addEventListener('click', function(e) {
+      if (e.target.id === 'helpModal') closeHelp();
+    });
+  </script>
+{% endblock %}
+

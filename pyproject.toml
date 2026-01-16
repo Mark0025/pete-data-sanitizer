@@ -1,0 +1,43 @@
+[project]
+name = "app"
+version = "0.0.6"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openpyxl>=3.1.5",
+    "pandas>=2.3.3",
+    "pyflowchart>=0.3.1",
+    "typer>=0.12.5",
+    "questionary>=2.1.0",
+    "fastapi>=0.115.6",
+    "uvicorn>=0.30.6",
+    "loguru>=0.7.3",
+    "pyyaml>=6.0.2",
+    "jinja2>=3.1.4",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.10.4",
+    "sqlalchemy>=2.0.0",
+    "httpx>=0.27.0",
+    "pytest>=8.3.4",
+]
+
+[project.scripts]
+pete-dm-clean = "pete_dm_clean.cli:main"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "BLE", "UP", "C90"]
+ignore = [
+  "E501", # line length handled by formatter preference; keep diffs small
+]
+
+[tool.ruff.lint.per-file-ignores]
+"build_staging.py" = ["BLE001"]  # best-effort instrumentation blocks intentionally catch Exception
+"pete_dm_clean/server.py" = ["BLE001"]  # UI preview helpers intentionally catch Exception
+
+[tool.ruff.lint.mccabe]
+max-complexity = 18

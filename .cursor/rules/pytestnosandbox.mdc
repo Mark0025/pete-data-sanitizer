@@ -1,0 +1,43 @@
+---
+description: Pytest should be run by the user (not in sandbox).
+globs: ["**/*"]
+alwaysApply: true
+---
+
+## Pytest / sandbox rule
+
+### Goal
+
+- Avoid running tests inside Cursor tool sandboxes (permissions + cache paths can fail).
+- Avoid dumping long pytest output into chat (context window cost).
+
+### Do
+
+- **Do not run pytest via tools** by default.
+- Ask the user to run tests locally and report results via a **short log tail**.
+- Prefer writing results to disk using **Loguru** (e.g. under `uploads/runs/_tests/`) so the user can share only the last 30–80 lines.
+
+### Commands to give the user
+
+From repo root:
+
+```bash
+uv sync
+uv run pytest -q
+```
+
+If needed (more detail):
+
+```bash
+uv run pytest -q -x
+```
+
+### Output to request back (minimal)
+
+- The final exit status, and
+- The last ~50 lines from the most recent pytest log under:
+  - `uploads/runs/_tests/`
+
+### Exception
+
+- Only run tests via tools if the user explicitly asks *and* understands sandbox/permission tradeoffs.

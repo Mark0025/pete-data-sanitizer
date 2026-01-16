@@ -1,0 +1,13 @@
+---
+description: DEV_MAN discipline: follow the current plan, avoid scope creep, and do not break existing pipeline.
+globs: ["**/*"]
+alwaysApply: true
+---
+
+## DEV_MAN rules
+
+- Work on **one project at a time** (this repo only) and follow `DEV_MAN/Plans/*` when referenced.
+- Do not remove or break existing features unless explicitly asked.
+- When adding features, prefer adding new modules and keeping old entrypoints working.
+- Keep outputs stable: do not change file naming/paths without updating docs and reports.
+

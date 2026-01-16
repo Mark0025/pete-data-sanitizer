@@ -1,0 +1,58 @@
+---
+description: SQLAlchemy + DB conventions (metadata-only, volume-first).
+globs: ["**/*.py"]
+alwaysApply: false
+---
+
+## SQLAlchemy 2026 rules (for this repo)
+
+### Purpose
+
+- **Store only metadata** in the DB: runs, companies, artifact *paths*, small statuses/counters.
+- **Do not store big blobs** (CSV/XLSX/flowchart text) in the DB.
+  - Those files already live in `uploads/` and must remain in the mounted volume for persistence.
+
+### Persistence model
+
+- **Filesystem is the source of truth for artifacts**:
+  - `uploads/companies/...` (inputs/outputs)
+  - `uploads/runs/...` (run json/log/summary/debug)
+  - `uploads/flowcharts/...` (diagram `.flow.txt` + `.summary.md`)
+- **DB is an index** to make lookup/query fast inside a container.
+
+### Configuration (env vars)
+
+- DB is **opt-in**; enable by setting one of:
+  - `DB_URL` (preferred for Postgres later)
+  - `DB_PATH` (SQLite file path)
+  - `DB_ENABLED=1` (uses default path derived from `UPLOADS_DIR`)
+- Keep DB files on the **persistent volume**, not inside the image.
+  - Example homelab default:
+    - `UPLOADS_DIR=/data/uploads`
+    - `DB_PATH=/data/pete_dm_clean.sqlite`
+
+### Implementation rules
+
+- Use **SQLAlchemy 2.0** style (`Mapped[]`, `mapped_column`, `select()`).
+- Keep sessions **short**:
+  - open session
+  - do one unit of work (ingest a run)
+  - commit
+  - close
+- DB writes must be **best-effort**:
+  - Never fail a build or server startup because the DB is unavailable.
+  - If DB ingestion fails, continue and rely on the filesystem outputs.
+
+### Schema rules
+
+- Prefer **simple tables**:
+  - `companies` (id, name, created_at)
+  - `runs` (id/run_id, company_id, created_at, status, run_json_path)
+  - `artifacts` (run_id, role, key, path)
+- Store paths **relative to `UPLOADS_DIR`** when possible so the DB stays portable across hosts.
+
+### Migrations
+
+- For now, schema changes should be backward compatible (add columns/tables).
+- If/when schema churn starts, add Alembic and versioned migrations.
+

@@ -1,0 +1,27 @@
+---
+description: Local git workflow (track work, no pushing).
+globs: ["**/*"]
+alwaysApply: true
+---
+
+## Git workflow rules (local-only for now)
+
+### Goal
+
+- Use git to **track work locally** (history + diffs) even before GitHub exists.
+- **Do not push** to any remote unless the user explicitly asks.
+
+### Do
+
+- Create commits in small logical chunks (docs vs code vs infra).
+- Use clear messages (why > what).
+- Keep generated artifacts out of git:
+  - `uploads/**` (except `uploads/templates/**`)
+  - caches (`__pycache__`, `.venv`, `.pytest_cache`, `.ruff_cache`, etc.)
+
+### Don’t
+
+- Don’t add a remote or push unless asked.
+- Don’t commit secrets (`config.yaml`, api keys, tokens).
+- Don’t commit large datasets/exports.
+

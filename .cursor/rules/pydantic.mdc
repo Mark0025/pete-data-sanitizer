@@ -1,0 +1,15 @@
+---
+description: Pydantic/FastAPI conventions for this repo.
+globs: ["**/*.py"]
+alwaysApply: true
+---
+
+## Pydantic / FastAPI rules
+
+- Use **FastAPI** for HTTP services and **Uvicorn** for running the server.
+- Keep API models in **Pydantic** only when needed; avoid over-modeling.
+- Endpoints should be:
+  - predictable (`GET` for reads, `POST` for actions)
+  - explicit about content type (HTML vs plain text vs JSON)
+- Prefer pure-Python server logic; do not embed heavy framework logic into data pipeline code.
+

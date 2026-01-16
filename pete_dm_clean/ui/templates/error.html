@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card">
+    <h3>{{ title or "Error" }}</h3>
+    <p class="muted">{{ message }}</p>
+    {% if details %}
+      <details open>
+        <summary><b>Details</b></summary>
+        <pre class="mono">{{ details }}</pre>
+      </details>
+    {% endif %}
+    <div style="height:12px"></div>
+    <a class="btn" href="/ui{% if company_id %}?company_id={{ company_id }}{% endif %}">Back to dashboard</a>
+  </div>
+{% endblock %}
+

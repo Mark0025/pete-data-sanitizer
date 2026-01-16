@@ -1,0 +1,42 @@
+---
+description: Runtime tracking (RunTracker) usage guidelines (Lego explanation encoded as rules).
+globs: ["**/*.py"]
+alwaysApply: true
+---
+
+## Runtime tracking rule (RunTracker)
+
+### Mental model
+- One **run** = one “clipboard / scoreboard” (RunTracker) that records what happened at runtime.
+- Modules/stations write to the same clipboard via `tracker.step(...)`.
+
+### Do
+- Create **exactly one** `RunTracker` at the **entrypoint** of a run (CLI command / pipeline runner).
+- Pass the tracker down **explicitly** (preferred) or use context helpers:
+  - `set_tracker(tracker)` once at the entrypoint
+  - `get_tracker()` inside deeper modules when threading the tracker is too noisy
+- Log only **meaningful steps** (file IO, major transforms, exports, reports).
+
+### Where to add it (and where not to)
+- **Add it at entrypoints (always)**:
+  - CLI commands / pipeline runners: create the tracker, configure logging, and write the run record.
+- **Add it to “stations” (yes)**:
+  - modules that read/write files
+  - major transforms (dedupe, matching, merging)
+  - export/report writers
+- **Do NOT add it everywhere by default**:
+  - avoid instrumenting tiny helpers (string normalization, trivial mappers)
+  - avoid creating new trackers in each module
+  - keep the “scoreboard” high-signal
+
+### Don’t
+- Don’t create a new tracker in every module “just because”.
+  - That fragments runtime truth into multiple run records.
+- Don’t instrument tiny helper functions (normalization, small mappers) by default.
+
+### Learning mode (very noisy)
+- If you need to see “every function call”, enable call tracing only via a flag:
+  - `--trace-calls` (off by default)
+  - Keep `trace_include_stdlib=false` unless you explicitly need it.
+- Expect large logs; cap with `trace_max_events`.
+

@@ -1,0 +1,33 @@
+# Copy to `config.yaml` to override defaults.
+#
+# CLI flags always override config values.
+
+build:
+  uploads_dir: uploads
+  template: uploads/templates/Properties Template (15).xlsx
+  export_prefix: PETE.DM.FERNANDO.CLEAN
+  export_date_format: "%m.%d.%y"
+  max_sellers: 5
+  desktop_copy: true
+  desktop_subfolder_prefix: fernando.dealmachine.clean
+  desktop_subfolder_date_format: "%m.%d.%y"
+
+serve:
+  host: "127.0.0.1"
+  port: 8765
+  reload: true
+
+thresholds:
+  # WARN if match rate (%) is below this value
+  match_warn_pct: 95.0
+  # WARN if missing sellers count is >= this value (0 disables missing-seller warnings)
+  missing_seller_warn_count: 1
+
+generators:
+  pete_properties_import:
+    # These defaults drive the UI/CLI for this output builder.
+    export_prefix: "PETE.DM.FERNANDO.CLEAN"
+    export_date_format: "%m.%d.%y"
+    max_sellers: 5
+    debug_report: false
+    debug_sample_n: 25

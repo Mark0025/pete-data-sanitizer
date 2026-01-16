@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card">
+    <h3>Settings (config)</h3>
+    <div class="muted" style="margin-bottom:10px">
+      Paste YAML here. Save writes to <span class="mono">{{ config_path }}</span>
+      (and backups to <span class="mono">{{ config_path }}.bak</span>).
+      You can override the path via <span class="mono">CONFIG_PATH</span>.
+    </div>
+    <form method="post" action="/ui/settings">
+      <label>config</label>
+      <textarea name="config_text" style="width:100%; min-height:360px; padding:12px; border-radius:12px; border:1px solid var(--border); background:#0b1220; color:var(--text);" class="mono">{{ config_text }}</textarea>
+      <div style="height:12px"></div>
+      <button class="btn primary" type="submit">Save</button>
+      <a class="btn" href="/ui">Back</a>
+    </form>
+  </div>
+{% endblock %}
+

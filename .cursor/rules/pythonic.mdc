@@ -1,0 +1,18 @@
+---
+description: Pythonic code style and conventions for this repo.
+globs: ["**/*.py"]
+alwaysApply: true
+---
+
+## Pythonic rules
+
+- Prefer **small, testable functions** with clear names over long scripts.
+- Prefer **dataclasses** for simple structured return values.
+- Prefer **Pathlib** (`pathlib.Path`) for filesystem paths.
+- Avoid hidden side effects: keep IO (read/write) close to the CLI / orchestration layer.
+- Keep code safe with helpful errors:
+  - validate inputs early
+  - raise clear exceptions
+- Use type hints where they add clarity (especially public functions and dataclass fields).
+- Be careful with naming collisions (do not shadow functions with variables/params).
+

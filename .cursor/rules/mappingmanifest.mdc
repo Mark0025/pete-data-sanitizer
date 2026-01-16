@@ -1,0 +1,43 @@
+---
+description: Mapping manifest conventions (template-driven, UI-visible).
+globs: ["**/*.py", "**/*.html"]
+alwaysApply: true
+---
+
+## Mapping manifest rules (Pete template contract)
+
+### Purpose
+
+- Every build/run should produce a **mapping manifest** that answers:
+  - “Template column X came from where?”
+  - “What rule filled it?”
+  - “Show an example value”
+
+### Contract
+
+- The **Excel template** under `uploads/templates/` is the canonical schema.
+- The manifest is **template-driven**: one row per template column.
+
+### Artifacts
+
+Each run should write:
+
+- `<run_id>.mapping.md`
+- `<run_id>.mapping.json`
+
+under the same scoped runs directory:
+
+- `uploads/runs/<company_id>/` (company-scoped)
+- `uploads/runs/` (shared)
+
+### UI
+
+- The UI must link to mapping for each run:
+  - build complete page
+  - recent runs list
+
+### Storage
+
+- Keep manifests **small and readable**.
+- Do not embed full datasets; only short examples.
+

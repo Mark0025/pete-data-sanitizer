@@ -1,0 +1,35 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pytype/
+
+# Virtualenvs
+.venv/
+venv/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local config (committed example lives in config.example.yaml)
+config.yaml
+config.yaml.bak
+
+# Generated outputs (keep templates; ignore everything else)
+uploads/**
+!uploads/templates/
+!uploads/templates/**
+
+# If you later decide to commit specific non-template assets under uploads/,
+# add explicit negations above.
+
