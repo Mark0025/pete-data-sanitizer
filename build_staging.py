@@ -1004,11 +1004,51 @@ def write_client_markdown_report(
     desired_unique = int(report_summary.get("desired_outcome_unique_addresses", 0))
     deduped = int(report_summary.get("desired_outcome_duplicate_rows_eliminated", 0))
     contacts_rows = int(report_summary.get("contacts_rows", 0))
+    contacts_unique_addresses = int(report_summary.get("contacts_unique_addresses", 0))
+    addr_phone_collisions = int(report_summary.get("addresses_with_phone_collisions", 0))
+    addr_email_collisions = int(report_summary.get("addresses_with_email_collisions", 0))
+
+    # Friendly rollups (non-technical)
+    addresses_with_multiple_contacts = 0
+    if not addr_report_df.empty and "contacts_rows" in addr_report_df.columns:
+        try:
+            addresses_with_multiple_contacts = int((addr_report_df["contacts_rows"] > 1).sum())
+        except Exception:  # noqa: BLE001 - best-effort counts
+            addresses_with_multiple_contacts = 0
+
+    phones_reused_across_addresses = 0
+    if not phones_global_df.empty and "address_count" in phones_global_df.columns:
+        try:
+            phones_reused_across_addresses = int((phones_global_df["address_count"] > 1).sum())
+        except Exception:  # noqa: BLE001
+            phones_reused_across_addresses = 0
+
+    emails_reused_across_addresses = 0
+    if not emails_global_df.empty and "address_count" in emails_global_df.columns:
+        try:
+            emails_reused_across_addresses = int((emails_global_df["address_count"] > 1).sum())
+        except Exception:  # noqa: BLE001
+            emails_reused_across_addresses = 0
 
     md: list[str] = []
-    md.append("## pete DEAL MACHEINE CLEAN REPORT")
+    md.append("## Pete import cleanup report")
     md.append("")
     md.append(f"- **Created**: {created_at}")
+    md.append("")
+    md.append("## Quick results (what we fixed)")
+    md.append("")
+    md.append(f"- **Duplicate properties removed**: {deduped} (kept {desired_unique} unique addresses)")
+    md.append(f"- **Addresses that had multiple contacts**: {addresses_with_multiple_contacts}")
+    md.append(f"- **Addresses with duplicate phone numbers**: {addr_phone_collisions}")
+    md.append(f"- **Addresses with duplicate emails**: {addr_email_collisions}")
+    md.append(f"- **Phone numbers reused across different addresses**: {phones_reused_across_addresses}")
+    md.append(f"- **Emails reused across different addresses**: {emails_reused_across_addresses}")
+    md.append("")
+    md.append("## Import formatting (to reduce import errors)")
+    md.append("")
+    md.append("- **Phone numbers**: normalized to digits-only (no `.0`, no punctuation).")
+    md.append("- **Commas/newlines**: removed from output fields to avoid mangled CSV imports.")
+    md.append("- **Full Address**: ZIP is removed from `Full Address` and stored in `Zip Code` instead.")
     md.append("")
     md.append("## Inputs used")
     md.append("")
@@ -1027,6 +1067,8 @@ def write_client_markdown_report(
     md.append(f"- **Unique addresses (input)**: {desired_unique}")
     md.append(f"- **Duplicate address rows eliminated**: {deduped}")
     md.append(f"- **Contacts rows (input)**: {contacts_rows}")
+    if contacts_unique_addresses:
+        md.append(f"- **Unique addresses found in contacts**: {contacts_unique_addresses}")
     md.append("")
     md.append("## Outputs produced")
     md.append("")
