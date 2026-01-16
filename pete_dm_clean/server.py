@@ -108,6 +108,19 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
     runs_root = Path(uploads_dir) / "runs"
     runs_root.mkdir(parents=True, exist_ok=True)
     templates = Jinja2Templates(directory=str(Path(__file__).parent / "ui" / "templates"))
+    def _scoped_runs_dir(company_id: str | None) -> Path:
+        return (runs_root / company_id) if company_id else runs_root
+
+    def _run_md_path(company_id: str | None, run_id: str, kind: str) -> Path:
+        runs_dir = _scoped_runs_dir(company_id)
+        if kind == "summary":
+            return runs_dir / f"{run_id}.summary.md"
+        if kind == "debug":
+            return runs_dir / f"{run_id}.debug.md"
+        if kind == "mapping":
+            return runs_dir / f"{run_id}.mapping.md"
+        raise HTTPException(status_code=400, detail="invalid kind")
+
 
     @fastapi_app.get("/healthz", response_class=PlainTextResponse)
     def healthz():
@@ -707,26 +720,72 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
             raise HTTPException(status_code=404, detail="no debug reports found (run build with --debug-report)")
         return PlainTextResponse(files[-1].read_text(encoding="utf-8"))
 
-    @fastapi_app.get("/runs/{run_id}/summary", response_class=PlainTextResponse)
-    def runs_summary(run_id: str, company_id: str | None = None):
-        runs_dir = (runs_root / company_id) if company_id else runs_root
-        path = runs_dir / f"{run_id}.summary.md"
+    # ---- Runs: pretty HTML view + raw markdown ----
+    @fastapi_app.get("/runs/{run_id}/summary", response_class=HTMLResponse)
+    def runs_summary(run_id: str, company_id: str | None = None, request: Request | None = None):
+        raw = f"/runs/{run_id}/summary/raw" + (f"?company_id={company_id}" if company_id else "")
+        return templates.TemplateResponse(
+            "markdown_view.html",
+            {
+                "request": request,
+                "title": "Run summary",
+                "heading": "Run summary",
+                "run_id": run_id,
+                "company_id": company_id or "",
+                "raw_url": raw,
+                "raw_fetch_url": raw,
+            },
+        )
+
+    @fastapi_app.get("/runs/{run_id}/summary/raw", response_class=PlainTextResponse)
+    def runs_summary_raw(run_id: str, company_id: str | None = None):
+        path = _run_md_path(company_id, run_id, "summary")
         if not path.exists():
             raise HTTPException(status_code=404, detail="summary not found for run_id")
         return PlainTextResponse(path.read_text(encoding="utf-8"))
 
-    @fastapi_app.get("/runs/{run_id}/debug", response_class=PlainTextResponse)
-    def runs_debug(run_id: str, company_id: str | None = None):
-        runs_dir = (runs_root / company_id) if company_id else runs_root
-        path = runs_dir / f"{run_id}.debug.md"
+    @fastapi_app.get("/runs/{run_id}/debug", response_class=HTMLResponse)
+    def runs_debug(run_id: str, company_id: str | None = None, request: Request | None = None):
+        raw = f"/runs/{run_id}/debug/raw" + (f"?company_id={company_id}" if company_id else "")
+        return templates.TemplateResponse(
+            "markdown_view.html",
+            {
+                "request": request,
+                "title": "Debug report",
+                "heading": "Debug report",
+                "run_id": run_id,
+                "company_id": company_id or "",
+                "raw_url": raw,
+                "raw_fetch_url": raw,
+            },
+        )
+
+    @fastapi_app.get("/runs/{run_id}/debug/raw", response_class=PlainTextResponse)
+    def runs_debug_raw(run_id: str, company_id: str | None = None):
+        path = _run_md_path(company_id, run_id, "debug")
         if not path.exists():
             raise HTTPException(status_code=404, detail="debug report not found for run_id")
         return PlainTextResponse(path.read_text(encoding="utf-8"))
 
-    @fastapi_app.get("/runs/{run_id}/mapping", response_class=PlainTextResponse)
-    def runs_mapping(run_id: str, company_id: str | None = None):
-        runs_dir = (runs_root / company_id) if company_id else runs_root
-        path = runs_dir / f"{run_id}.mapping.md"
+    @fastapi_app.get("/runs/{run_id}/mapping", response_class=HTMLResponse)
+    def runs_mapping(run_id: str, company_id: str | None = None, request: Request | None = None):
+        raw = f"/runs/{run_id}/mapping/raw" + (f"?company_id={company_id}" if company_id else "")
+        return templates.TemplateResponse(
+            "markdown_view.html",
+            {
+                "request": request,
+                "title": "Mapping manifest",
+                "heading": "Mapping manifest",
+                "run_id": run_id,
+                "company_id": company_id or "",
+                "raw_url": raw,
+                "raw_fetch_url": raw,
+            },
+        )
+
+    @fastapi_app.get("/runs/{run_id}/mapping/raw", response_class=PlainTextResponse)
+    def runs_mapping_raw(run_id: str, company_id: str | None = None):
+        path = _run_md_path(company_id, run_id, "mapping")
         if not path.exists():
             raise HTTPException(status_code=404, detail="mapping manifest not found for run_id")
         return PlainTextResponse(path.read_text(encoding="utf-8"))

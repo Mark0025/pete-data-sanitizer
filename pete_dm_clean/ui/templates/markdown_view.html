@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="row" style="align-items:center; justify-content:space-between;">
+      <div>
+        <h3 style="margin:0">{{ heading }}</h3>
+        <div class="muted" style="margin-top:6px">
+          run_id: <span class="mono">{{ run_id }}</span>
+          {% if company_id %} • company_id: <span class="mono">{{ company_id }}</span>{% endif %}
+        </div>
+      </div>
+      <div style="text-align:right; flex:0">
+        <a class="btn" href="{{ raw_url }}">Raw</a>
+        <a class="btn" href="/ui{% if company_id %}?company_id={{ company_id }}{% endif %}">Back</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="mdStatus" class="muted">Loading…</div>
+    <div id="mdBody" style="margin-top:12px"></div>
+  </div>
+
+  <!-- Client-side Markdown rendering keeps server pythonic -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    (function () {
+      const status = document.getElementById("mdStatus");
+      const body = document.getElementById("mdBody");
+      const url = "{{ raw_fetch_url }}";
+
+      // Small style adjustments for markdown.
+      body.style.lineHeight = "1.45";
+      body.style.fontSize = "14px";
+      body.style.color = "var(--text)";
+
+      fetch(url).then(async (res) => {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const text = await res.text();
+        status.textContent = "";
+        body.innerHTML = marked.parse(text);
+      }).catch((err) => {
+        status.textContent = "Failed to load markdown.";
+        const pre = document.createElement("pre");
+        pre.textContent = String(err);
+        body.innerHTML = "";
+        body.appendChild(pre);
+      });
+    })();
+  </script>
+{% endblock %}
+
