@@ -120,7 +120,7 @@ def build(
         cfg_get(cfg_raw, "build.desktop_subfolder_date_format", "%m.%d.%y")
     )
     eff_randomize_external_ids = bool(randomize_external_ids) if randomize_external_ids is not None else False
-    eff_external_id_digits = int(external_id_digits if external_id_digits is not None else 10)
+    eff_external_id_digits = int(external_id_digits if external_id_digits is not None else 7)
     eff_trace_calls = bool(trace_calls) if trace_calls is not None else False
     eff_trace_max_events = int(trace_max_events if trace_max_events is not None else 50000)
     eff_trace_include_stdlib = bool(trace_include_stdlib) if trace_include_stdlib is not None else False

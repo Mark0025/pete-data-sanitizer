@@ -122,7 +122,7 @@
         <div class="row">
           <div>
             <label>Export prefix</label>
-            <input type="text" name="export_prefix" value="PETE.DM.FERNANDO.CLEAN"/>
+            <input type="text" name="export_prefix" id="export_prefix_input" value="PETE.DM.FERNANDO.CLEAN"/>
           </div>
           <div>
             <label>Date format</label>
@@ -134,9 +134,12 @@
 
         <div class="row">
           <div>
-            <label><input type="checkbox" name="export_prefix_from_input" value="true" /> Use input filename as export prefix (adds <span class="mono">.CLEAN</span>)</label>
+            <label>
+              <input type="checkbox" id="export_prefix_from_input_cb" name="export_prefix_from_input" value="true" checked />
+              Use input filename as export prefix (adds <span class="mono">.pete.clean</span>)
+            </label>
             <div class="muted">
-              If enabled, exports will use the selected input filename (without .csv) as the prefix.
+              If enabled, the export prefix auto-updates based on the selected input file.
             </div>
           </div>
         </div>
@@ -169,7 +172,7 @@
           </div>
           <div>
             <label>External Id digits</label>
-            <input type="number" name="external_id_digits" value="10" min="6" max="32"/>
+            <input type="number" name="external_id_digits" value="7" min="6" max="32"/>
           </div>
         </div>
 
@@ -340,6 +343,56 @@
     document.getElementById('helpModal').addEventListener('click', function(e) {
       if (e.target.id === 'helpModal') closeHelp();
     });
+
+    // ---- Export prefix (dynamic from selected input) ----
+    function slugPrefixFromFilename(filename) {
+      if (!filename) return "export.pete.clean";
+      // drop extension
+      const base = filename.replace(/\.[^.]+$/, "");
+      let s = base.toLowerCase();
+      // keep alnum/_/space/hyphen, turn everything else into spaces
+      s = s.replace(/[^\w\s-]+/g, " ");
+      // underscores/spaces -> hyphen
+      s = s.replace(/[_\s]+/g, "-");
+      s = s.replace(/-+/g, "-").replace(/^-|-$/g, "");
+      let parts = s.split("-").filter(Boolean);
+      while (parts.length && /^\d+$/.test(parts[parts.length - 1])) parts.pop();
+      parts = parts.slice(0, 6);
+      const slug = parts.length ? parts.join("-") : "export";
+      return `${slug}.pete.clean`;
+    }
+
+    function selectedInputFilename() {
+      // Prefer desired_outcome if selected; otherwise use contacts.
+      const desired = document.getElementById("desired_outcome_select")?.value || "";
+      const contacts = document.getElementById("contacts_select")?.value || "";
+      return desired || contacts || "";
+    }
+
+    function syncExportPrefixUI() {
+      const cb = document.getElementById("export_prefix_from_input_cb");
+      const inp = document.getElementById("export_prefix_input");
+      if (!cb || !inp) return;
+
+      if (!inp.dataset.manualValue) inp.dataset.manualValue = inp.value || "";
+
+      if (cb.checked) {
+        const filename = selectedInputFilename();
+        inp.value = slugPrefixFromFilename(filename);
+        inp.readOnly = true;
+        inp.style.opacity = "0.85";
+      } else {
+        inp.readOnly = false;
+        inp.style.opacity = "1";
+        inp.value = inp.dataset.manualValue || inp.value;
+      }
+    }
+
+    document.getElementById("export_prefix_from_input_cb")?.addEventListener("change", syncExportPrefixUI);
+    document.getElementById("desired_outcome_select")?.addEventListener("change", syncExportPrefixUI);
+    document.getElementById("contacts_select")?.addEventListener("change", syncExportPrefixUI);
+    // Initialize on page load
+    syncExportPrefixUI();
   </script>
 {% endblock %}
 
