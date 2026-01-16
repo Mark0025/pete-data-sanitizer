@@ -996,9 +996,7 @@ def write_client_markdown_report(
     global_phones_csv_path: Path,
     global_emails_csv_path: Path,
 ) -> None:
-    """
-    Client-facing, factual summary describing what the run did and what it produced.
-    """
+    """Write a client-facing report (short + friendly, with expandable details)."""
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     desired_rows = int(report_summary.get("desired_outcome_rows", 0))
     desired_unique = int(report_summary.get("desired_outcome_unique_addresses", 0))
@@ -1031,37 +1029,42 @@ def write_client_markdown_report(
             emails_reused_across_addresses = 0
 
     md: list[str] = []
-    md.append("## Pete import cleanup report")
+    md.append("## What this tool fixed (quick report)")
     md.append("")
     md.append(f"- **Created**: {created_at}")
     md.append("")
-    md.append("## Quick results (what we fixed)")
+    md.append("### Summary (non-technical)")
     md.append("")
-    md.append(f"- **Duplicate properties removed**: {deduped} (kept {desired_unique} unique addresses)")
-    md.append(f"- **Addresses that had multiple contacts**: {addresses_with_multiple_contacts}")
-    md.append(f"- **Addresses with duplicate phone numbers**: {addr_phone_collisions}")
-    md.append(f"- **Addresses with duplicate emails**: {addr_email_collisions}")
-    md.append(f"- **Phone numbers reused across different addresses**: {phones_reused_across_addresses}")
-    md.append(f"- **Emails reused across different addresses**: {emails_reused_across_addresses}")
+    md.append(f"- We started with **{desired_rows} rows** and produced **{desired_unique} unique properties**.")
+    md.append(f"- We removed **{deduped} duplicate property rows** (same address appearing multiple times).")
+    md.append(f"- We found **{addresses_with_multiple_contacts} addresses** with more than one contact.")
+    md.append(f"- We detected **{addr_phone_collisions} addresses** where the same phone appears more than once.")
+    md.append(f"- We detected **{addr_email_collisions} addresses** where the same email appears more than once.")
+    md.append(f"- We found **{phones_reused_across_addresses} phone numbers** reused across different addresses.")
+    md.append(f"- We found **{emails_reused_across_addresses} emails** reused across different addresses.")
     md.append("")
-    md.append("## Import formatting (to reduce import errors)")
+    md.append("### Import formatting (to reduce import errors)")
     md.append("")
     md.append("- **Phone numbers**: normalized to digits-only (no `.0`, no punctuation).")
     md.append("- **Commas/newlines**: removed from output fields to avoid mangled CSV imports.")
     md.append("- **Full Address**: ZIP is removed from `Full Address` and stored in `Zip Code` instead.")
     md.append("")
-    md.append("## Inputs used")
+    md.append("<details>")
+    md.append("<summary><b>Inputs / outputs (details)</b></summary>")
     md.append("")
-    md.append(f"- **Desired-outcome CSV**: `{desired_path}`")
+    md.append("#### Inputs used")
+    md.append("")
+    desired_label = str(desired_path) if str(desired_path) and str(desired_path) != "None" else "(contacts-only)"
+    md.append(f"- **Desired-outcome CSV**: `{desired_label}`")
     md.append(f"- **Contacts CSV**: `{contacts_path}`")
     md.append(f"- **Properties template**: `{template_path}`")
     md.append("")
-    md.append("## What this run did")
+    md.append("#### What this run did")
     md.append("")
     md.append("- **Deduped by address**: produced **one row per `Full Address`** in the import sheet.")
     md.append("- **Seller selection**: when multiple contacts exist for an address, contacts flagged **“Likely Owner”** are prioritized.")
     md.append("")
-    md.append("## Key counts")
+    md.append("#### Key counts")
     md.append("")
     md.append(f"- **Desired-outcome rows (input)**: {desired_rows}")
     md.append(f"- **Unique addresses (input)**: {desired_unique}")
@@ -1070,7 +1073,7 @@ def write_client_markdown_report(
     if contacts_unique_addresses:
         md.append(f"- **Unique addresses found in contacts**: {contacts_unique_addresses}")
     md.append("")
-    md.append("## Outputs produced")
+    md.append("#### Outputs produced")
     md.append("")
     md.append(f"- **Import workbook (upload this)**: `{out_xlsx_path}`")
     md.append("  - `Sheet1`: import-ready template-shaped sheet")
@@ -1083,7 +1086,10 @@ def write_client_markdown_report(
     if desktop_export_dir is not None:
         md.append(f"- **Copied to Downloads folder**: `{desktop_export_dir}`")
     md.append("")
-    md.append("## Top items (for review)")
+    md.append("</details>")
+    md.append("")
+    md.append("<details>")
+    md.append("<summary><b>Top items (for review)</b></summary>")
     md.append("")
     md.append("### Addresses with the most contacts / collisions (top 10)")
     md.append("")
@@ -1103,6 +1109,7 @@ def write_client_markdown_report(
     md.append("")
     md.append(_df_to_markdown_table(emails_global_df, ["email", "address_count", "occurrences", "unique_names"], max_rows=10))
     md.append("")
+    md.append("</details>")
 
     report_md_path.parent.mkdir(parents=True, exist_ok=True)
     report_md_path.write_text("\n".join(md).rstrip() + "\n", encoding="utf-8")
@@ -1428,7 +1435,7 @@ def run_build(
         )
 
         write_client_markdown_report(
-            report_md,
+            tracker.runs_dir / f"{tracker.run_id}.report.md",
             desired_path=desired_path,
             contacts_path=contacts_path,
             template_path=template_path,
@@ -1445,6 +1452,16 @@ def run_build(
             global_phones_csv_path=report_global_phones_csv,
             global_emails_csv_path=report_global_emails_csv,
         )
+        # Keep legacy global path for convenience/backward compatibility.
+        try:
+            legacy = Path(report_md)
+            if legacy:
+                legacy.write_text(
+                    (tracker.runs_dir / f"{tracker.run_id}.report.md").read_text(encoding="utf-8"),
+                    encoding="utf-8",
+                )
+        except Exception:  # noqa: BLE001 - best-effort legacy write
+            pass
 
         copied_paths: list[Path] = []
         if desktop_copy:
@@ -1474,7 +1491,8 @@ def run_build(
         tracker.set_output("out_xlsx", out_path)
         tracker.set_output("out_csv", out_csv_path)
         tracker.set_output("seller_summary_csv", seller_summary_csv_path)
-        tracker.set_output("report_md", report_md)
+        # Prefer run-scoped report for UI correctness; legacy global report is still written.
+        tracker.set_output("report_md", tracker.runs_dir / f"{tracker.run_id}.report.md")
 
         # Template mapping manifest (one row per template column)
         try:
