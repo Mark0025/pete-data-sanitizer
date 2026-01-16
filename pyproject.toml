@@ -25,6 +25,17 @@ dependencies = [
 [project.scripts]
 pete-dm-clean = "pete_dm_clean.cli:main"
 
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+# Ensure `project.scripts` entrypoints are installed for `uv run pete-dm-clean ...`
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["pete_dm_clean"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100
