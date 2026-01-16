@@ -349,6 +349,122 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
             log.warning("ui_output_preview_snippet_failed company_id={} err={}", company_id, str(e))
             return HTMLResponse("<div class='muted'>Could not preview latest output.</div>")
 
+    @fastapi_app.get("/ui/mapping_preview", response_class=HTMLResponse)
+    def ui_mapping_preview(
+        company_id: str = "",
+        desired_outcome: str = "",
+        contacts: str = "",
+        template: str = "",
+        contacts_only: bool = False,
+        max_sellers: int = 5,
+        randomize_external_ids: bool = False,
+        external_id_digits: int = 7,
+    ):
+        """
+        Pre-build mapping preview (sampled).
+
+        This does NOT write outputs or run records. It:
+        - loads selected inputs (client-scoped)
+        - runs the staging generation on a small sample
+        - returns the template-driven mapping manifest as an HTML table
+        """
+        uploads_p = Path(uploads_dir)
+        inputs_dir = uploads_p
+        if company_id:
+            paths = company_paths(uploads_dir=uploads_p, company_id=company_id)
+            ensure_company_dirs(paths)
+            inputs_dir = paths.inputs_dir
+
+        # Resolve template similar to build
+        if template:
+            template_p = inputs_dir / template
+        else:
+            template_p = inputs_dir / "templates" / "Properties Template (15).xlsx"
+        if not template_p.exists():
+            shared_template = uploads_p / "templates" / "Properties Template (15).xlsx"
+            if shared_template.exists():
+                template_p = shared_template
+        if not template_p.exists():
+            return HTMLResponse("<div class='muted'>Template not found for mapping preview.</div>", status_code=400)
+
+        # Resolve inputs (optional in contacts-only)
+        desired_p = (inputs_dir / desired_outcome) if desired_outcome else None
+        contacts_p = (inputs_dir / contacts) if contacts else None
+        if contacts_p is None:
+            return HTMLResponse("<div class='muted'>Select a contacts CSV first.</div>", status_code=400)
+
+        try:
+            import html as _html
+            import pandas as pd
+
+            from build_staging import (
+                build_desired_from_contacts,
+                build_mapping_manifest,
+                generate_pete_properties_import,
+                normalize_phone_columns,
+                randomize_external_ids as _rand_ids,
+                sanitize_for_import,
+            )
+            from loaders import load_csv
+
+            contacts_df = load_csv(contacts_p)
+            # sample rows for speed (keep enough for sellers)
+            contacts_df = contacts_df.head(2500).copy()
+
+            if contacts_only or desired_p is None:
+                desired_df = build_desired_from_contacts(contacts_df)
+            else:
+                desired_df = load_csv(desired_p)
+            # Sample addresses for speed
+            if "Full Address" in desired_df.columns:
+                desired_df = desired_df.drop_duplicates(subset=["Full Address"]).head(50).copy()
+            else:
+                desired_df = desired_df.head(50).copy()
+
+            staging_df = generate_pete_properties_import(
+                desired_outcome_df=desired_df,
+                contacts_df=contacts_df,
+                max_sellers=int(max_sellers),
+                template_path=template_p,
+            )
+            if randomize_external_ids:
+                staging_df = _rand_ids(staging_df, seed=None, digits=int(external_id_digits))
+            staging_df = normalize_phone_columns(staging_df)
+            staging_df = sanitize_for_import(staging_df)
+
+            # Template columns for manifest
+            tdf = pd.read_excel(template_p, nrows=0)
+            template_columns = [str(c) for c in tdf.columns.tolist()]
+            rows, _md = build_mapping_manifest(
+                template_columns=template_columns,
+                contacts_only=bool(contacts_only),
+                randomize_external_ids=bool(randomize_external_ids),
+                external_id_digits=int(external_id_digits),
+                max_sellers=int(max_sellers),
+                staging_df=staging_df,
+            )
+
+            # Render as a simple styled table (matches base.html table styles).
+            out = []
+            out.append("<div class='muted' style='margin-bottom:8px'>Sampled mapping preview (no outputs written).</div>")
+            out.append("<table>")
+            out.append("<thead><tr><th>Template column</th><th>Source</th><th>Rule</th><th>Example</th></tr></thead>")
+            out.append("<tbody>")
+            for r in rows:
+                out.append(
+                    "<tr>"
+                    f"<td class='mono'>{_html.escape(r.get('template_column',''))}</td>"
+                    f"<td>{_html.escape(r.get('source',''))}</td>"
+                    f"<td>{_html.escape(r.get('rule',''))}</td>"
+                    f"<td class='mono'>{_html.escape(r.get('example',''))}</td>"
+                    "</tr>"
+                )
+            out.append("</tbody></table>")
+            return HTMLResponse("".join(out))
+        except Exception as e:  # noqa: BLE001
+            log.warning("ui_mapping_preview_failed company_id={} err={}", company_id, str(e))
+            return HTMLResponse("<div class='muted'>Could not build mapping preview.</div>", status_code=500)
+
     @fastapi_app.post("/ui/company/create", response_class=RedirectResponse)
     async def ui_company_create(company_name: str = Form(...)):
         uploads_p = Path(uploads_dir)
@@ -800,7 +916,7 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
             import json
             import pandas as pd
 
-            from build_staging import build_mapping_manifest
+            from build_staging import build_mapping_manifest, sanitize_for_import
 
             run = json.loads(run_json.read_text(encoding="utf-8"))
             outputs = (run.get("outputs") or {}) if isinstance(run.get("outputs"), dict) else {}
@@ -821,6 +937,8 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
                 staging_df = pd.read_csv(out_path, dtype=str, keep_default_na=False)
             else:
                 staging_df = pd.read_excel(out_path)
+            # Prefer showing the "import-safe" view (no commas/newlines) in mapping examples.
+            staging_df = sanitize_for_import(staging_df)
 
             # Template columns (header-only)
             tdf = pd.read_excel(template_path, nrows=0)

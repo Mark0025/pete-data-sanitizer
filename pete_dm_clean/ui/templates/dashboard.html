@@ -56,6 +56,9 @@
     <div class="card">
       <h3>Build</h3>
       <div class="muted" style="margin-bottom:10px">Select inputs and choose export naming.</div>
+      <div style="margin-bottom:10px">
+        <button type="button" class="btn" onclick="openMappingPreview()">Preview mapping</button>
+      </div>
       <form method="post" action="/ui/build">
         <input type="hidden" name="company_id" value="{{ company_id }}" />
         <div class="row">
@@ -282,6 +285,21 @@
     </div>
   </div>
 
+  <!-- Mapping preview modal -->
+  <div id="mappingModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);">
+    <div class="card" style="max-width: 1100px; margin: 60px auto; position:relative;">
+      <div class="row" style="align-items:center; justify-content:space-between;">
+        <h3 style="margin:0">Mapping preview (sampled)</h3>
+        <button class="btn" type="button" onclick="closeMapping()">Close</button>
+      </div>
+      <div class="muted" style="margin-top:10px">
+        This preview samples your selected inputs and shows “template column → rule/source” before you run a full build.
+      </div>
+      <div style="height:12px"></div>
+      <div id="mappingBody" style="overflow:auto; max-height:520px"></div>
+    </div>
+  </div>
+
   <script>
     let helpTimer = null;
     function closeHelp() {
@@ -342,6 +360,47 @@
 
     document.getElementById('helpModal').addEventListener('click', function(e) {
       if (e.target.id === 'helpModal') closeHelp();
+    });
+
+    // ---- Mapping preview modal ----
+    function closeMapping() {
+      const m = document.getElementById('mappingModal');
+      m.style.display = 'none';
+    }
+
+    async function openMappingPreview() {
+      const m = document.getElementById('mappingModal');
+      const body = document.getElementById('mappingBody');
+      const companyId = "{{ company_id }}";
+      const desired = document.getElementById("desired_outcome_select")?.value || "";
+      const contacts = document.getElementById("contacts_select")?.value || "";
+      const template = document.querySelector("select[name='template']")?.value || "";
+      const contactsOnly = document.querySelector("input[name='contacts_only']")?.checked ? "true" : "";
+      const maxSellers = document.querySelector("input[name='max_sellers']")?.value || "5";
+      const randIds = document.querySelector("input[name='randomize_external_ids']")?.checked ? "true" : "";
+      const digits = document.querySelector("input[name='external_id_digits']")?.value || "7";
+
+      body.innerHTML = "<div class='muted'>Loading mapping preview…</div>";
+      m.style.display = 'block';
+      try {
+        const url =
+          `/ui/mapping_preview?company_id=${encodeURIComponent(companyId)}` +
+          `&desired_outcome=${encodeURIComponent(desired)}` +
+          `&contacts=${encodeURIComponent(contacts)}` +
+          `&template=${encodeURIComponent(template)}` +
+          `&contacts_only=${encodeURIComponent(contactsOnly)}` +
+          `&max_sellers=${encodeURIComponent(maxSellers)}` +
+          `&randomize_external_ids=${encodeURIComponent(randIds)}` +
+          `&external_id_digits=${encodeURIComponent(digits)}`;
+        const res = await fetch(url);
+        body.innerHTML = await res.text();
+      } catch (e) {
+        body.innerHTML = "<div class='muted'>Could not load mapping preview.</div>";
+      }
+    }
+
+    document.getElementById('mappingModal').addEventListener('click', function(e) {
+      if (e.target.id === 'mappingModal') closeMapping();
     });
 
     // ---- Export prefix (dynamic from selected input) ----
