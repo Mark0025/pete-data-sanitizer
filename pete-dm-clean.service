@@ -1,0 +1,68 @@
+# systemd service file for Pete DealMachine Cleaner
+#
+# Installation:
+#   1. Copy this file to /etc/systemd/system/pete-dm-clean.service
+#   2. Update User, Group, WorkingDirectory, and Environment variables
+#   3. Run: sudo systemctl daemon-reload
+#   4. Enable: sudo systemctl enable pete-dm-clean
+#   5. Start: sudo systemctl start pete-dm-clean
+#   6. Check: sudo systemctl status pete-dm-clean
+#
+# Logs:
+#   sudo journalctl -u pete-dm-clean -f
+#
+
+[Unit]
+Description=Pete DealMachine Cleaner - FastAPI Server
+After=network.target
+Documentation=https://github.com/yourusername/pete-dm-clean
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/pete-dm-clean
+
+# Environment variables (customize these)
+Environment="ENVIRONMENT=production"
+Environment="PORT=8765"
+Environment="LOG_LEVEL=WARNING"
+Environment="UPLOADS_DIR=/opt/pete-dm-clean/uploads"
+Environment="DB_ENABLED=1"
+Environment="DB_PATH=/opt/pete-dm-clean/uploads/metadata.db"
+
+# Use environment file if you prefer
+# EnvironmentFile=/opt/pete-dm-clean/.env
+
+# Start command
+ExecStart=/opt/pete-dm-clean/.venv/bin/uvicorn pete_dm_clean.server:app \
+    --host 0.0.0.0 \
+    --port 8765 \
+    --workers 4 \
+    --log-level warning
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=5min
+StartLimitBurst=3
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/pete-dm-clean/uploads
+
+# Resource limits (adjust as needed)
+LimitNOFILE=65536
+MemoryLimit=2G
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pete-dm-clean
+
+[Install]
+WantedBy=multi-user.target

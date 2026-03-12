@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card" style="border-left: 3px solid #16a34a;">
+    <h3>Skip Trace Conversion Complete</h3>
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:16px">
+      <div style="padding:12px; border:1px solid var(--border); border-radius:8px; text-align:center">
+        <div class="muted" style="font-size:12px">Pete Rows</div>
+        <div style="font-size:28px; font-weight:bold; color:#16a34a">{{ total_rows }}</div>
+      </div>
+      <div style="padding:12px; border:1px solid var(--border); border-radius:8px; text-align:center">
+        <div class="muted" style="font-size:12px">Sellers</div>
+        <div style="font-size:28px; font-weight:bold; color:var(--accent)">{{ total_sellers }}</div>
+      </div>
+      <div style="padding:12px; border:1px solid var(--border); border-radius:8px; text-align:center">
+        <div class="muted" style="font-size:12px">Input Rows</div>
+        <div style="font-size:28px; font-weight:bold; color:var(--text)">{{ input_rows }}</div>
+      </div>
+      <div style="padding:12px; border:1px solid var(--border); border-radius:8px; text-align:center">
+        <div class="muted" style="font-size:12px">Skipped</div>
+        <div style="font-size:28px; font-weight:bold; color:{% if skipped_rows > 0 %}#ef4444{% else %}var(--text){% endif %}">{{ skipped_rows }}</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:16px">
+      <div style="padding:10px; border:1px solid var(--border); border-radius:8px">
+        <div class="muted" style="font-size:12px">With Phone</div>
+        <div style="font-size:20px; font-weight:bold">{{ rows_with_phone }}</div>
+        <div class="muted" style="font-size:11px">{{ ((rows_with_phone / total_rows * 100) | round(1)) if total_rows > 0 else 0 }}% coverage</div>
+      </div>
+      <div style="padding:10px; border:1px solid var(--border); border-radius:8px">
+        <div class="muted" style="font-size:12px">With Email</div>
+        <div style="font-size:20px; font-weight:bold">{{ rows_with_email }}</div>
+        <div class="muted" style="font-size:11px">{{ ((rows_with_email / total_rows * 100) | round(1)) if total_rows > 0 else 0 }}% coverage</div>
+      </div>
+      <div style="padding:10px; border:1px solid var(--border); border-radius:8px">
+        <div class="muted" style="font-size:12px">Extra Phones (2-5)</div>
+        <div style="font-size:20px; font-weight:bold">{{ rows_with_phone2 }}</div>
+        <div class="muted" style="font-size:11px">from all_phones column</div>
+      </div>
+    </div>
+
+    {% if dnc_count > 0 %}
+      <div style="padding:10px; border:1px solid #ef4444; border-radius:8px; background:rgba(239,68,68,0.05); margin-bottom:16px">
+        <strong style="color:#ef4444">DNC Warning:</strong> {{ dnc_count }} rows flagged as Do Not Call in the input data.
+        <span class="muted" style="font-size:12px">These rows are still included — verify before calling.</span>
+      </div>
+    {% endif %}
+
+    <div style="text-align:right; margin-bottom:16px">
+      <a class="btn" href="/ui/skiptrace">Back to Skip Trace</a>
+      <a class="btn" href="/ui">Dashboard</a>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Output Files</h3>
+      <ul>
+        <li class="mono" style="font-size:12px">{{ out_xlsx }}</li>
+        <li class="mono" style="font-size:12px">{{ out_csv }}</li>
+        <li class="mono" style="font-size:12px">{{ seller_summary_csv }}</li>
+        <li class="mono" style="font-size:12px">{{ report_md }}</li>
+      </ul>
+      {% if desktop_copy_dir %}
+        <div style="height:8px"></div>
+        <div class="muted" style="font-size:12px">Copied to Downloads</div>
+        <div class="mono" style="font-size:12px">{{ desktop_copy_dir }}</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Download</h3>
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <a class="btn primary" href="/ui/skiptrace/download/{{ xlsx_name }}" style="text-align:center">
+          Pete Import XLSX
+        </a>
+        <a class="btn" href="/ui/skiptrace/download/{{ csv_name }}" style="text-align:center">
+          Pete Import CSV
+        </a>
+        <a class="btn" href="/ui/skiptrace/download/{{ seller_summary_name }}" style="text-align:center">
+          Seller Summary
+        </a>
+        <a class="btn" href="/ui/skiptrace/download/{{ report_md_name }}" style="text-align:center">
+          Report (MD)
+        </a>
+      </div>
+      <div style="height:12px"></div>
+      <div style="padding:10px; border:1px solid var(--border); border-radius:8px; border-left:3px solid #16a34a">
+        <div class="muted" style="font-size:13px">
+          Upload the XLSX to Pete CRM &rarr; Properties &rarr; Import
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if report_content %}
+    <div class="card" style="margin-top:16px">
+      <h3>Conversion Report</h3>
+      <pre style="white-space:pre-wrap; font-size:12px; line-height:1.6; background:var(--bg); padding:16px; border-radius:8px; border:1px solid var(--border); overflow-x:auto">{{ report_content }}</pre>
+    </div>
+  {% endif %}
+{% endblock %}

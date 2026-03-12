@@ -25,6 +25,12 @@ dist/
 config.yaml
 config.yaml.bak
 
+# Environment secrets
+.env
+
+# Claude Code context
+.claude/
+
 # Generated outputs (keep templates; ignore everything else)
 uploads/**
 !uploads/templates/

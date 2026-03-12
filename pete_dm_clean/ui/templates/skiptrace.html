@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card" style="margin-bottom:16px; border-left: 3px solid #f59e0b;">
+    <h3>Skip Trace → Pete Import</h3>
+    <p style="margin-bottom:16px">Convert skip trace results into Pete Properties Import format in 2 steps:</p>
+    <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; margin-bottom:16px">
+      <div style="padding:12px; border:1px solid var(--border); border-radius:8px">
+        <div style="font-size:20px; font-weight:bold; color:#f59e0b">1</div>
+        <div style="font-weight:600; margin:6px 0">Upload Skip Trace File</div>
+        <div class="muted" style="font-size:13px">XLSX or CSV from your skip trace provider</div>
+      </div>
+      <div style="padding:12px; border:1px solid var(--border); border-radius:8px">
+        <div style="font-size:20px; font-weight:bold; color:#f59e0b">2</div>
+        <div style="font-weight:600; margin:6px 0">Download Pete File</div>
+        <div class="muted" style="font-size:13px">129-column XLSX ready for Pete import</div>
+      </div>
+    </div>
+    <div style="padding:10px; border:1px solid var(--border); border-radius:8px; border-left:3px solid #f59e0b">
+      <span class="muted">💡</span> Groups multiple people at the same address into Seller / Seller2 / Seller3. Generates unique External IDs.
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Upload & Convert</h3>
+      <form method="post" action="/ui/skiptrace/convert" enctype="multipart/form-data">
+        <div>
+          <label style="font-weight:600">Skip Trace Results File</label>
+          <input type="file" name="file" required accept=".xlsx,.xls,.csv" style="width:100%" />
+          <div class="muted" style="margin-top:4px; font-size:12px">
+            Expects columns: input_address, input_city, input_state, input_zip, first_name, last_name, phone, email, all_phones, all_emails
+          </div>
+        </div>
+
+        <div style="height:20px"></div>
+        <div style="font-weight:bold; margin-bottom:8px; font-size:15px">📋 Pete Import Settings</div>
+
+        <div style="padding:16px; border:2px solid #f59e0b; border-radius:8px; background:rgba(245,158,11,0.05)">
+          <div class="row">
+            <div>
+              <label style="font-weight:600; font-size:14px; color:var(--text)">Campaign Name</label>
+              <input type="text" name="campaign" value="Skip Trace" placeholder="e.g. Tired Landlord, Probate, Absentee Owner" style="font-size:15px; padding:12px" />
+              <div class="muted" style="margin-top:4px; font-size:12px">
+                This goes in Pete's "Campaign" column for every row
+              </div>
+            </div>
+            <div>
+              <label style="font-weight:600; font-size:14px; color:var(--text)">Status</label>
+              <input type="text" name="status" value="New" placeholder="e.g. New, Hot, Tired Landlord, Probate" style="font-size:15px; padding:12px" />
+              <div class="muted" style="margin-top:4px; font-size:12px">
+                This goes in Pete's "Status" column for every row — type whatever you want
+              </div>
+            </div>
+          </div>
+          <div style="height:12px"></div>
+          <div class="row">
+            <div>
+              <label style="font-weight:600; font-size:14px; color:var(--text)">Phase</label>
+              <input type="text" name="phase" value="" placeholder="(optional) e.g. Cold Call, Mail, Follow Up" style="font-size:15px; padding:12px" />
+              <div class="muted" style="margin-top:4px; font-size:12px">
+                This goes in Pete's "Phase" column (leave blank if not needed)
+              </div>
+            </div>
+            <div></div>
+          </div>
+        </div>
+
+        <div style="height:16px"></div>
+
+        <details style="border:1px solid var(--border); border-radius:8px; padding:12px">
+          <summary style="cursor:pointer; font-weight:600; user-select:none">⚙️ Advanced Options</summary>
+          <div style="margin-top:12px">
+            <div class="row">
+              <div>
+                <label>Export file prefix</label>
+                <input type="text" name="export_prefix" value="skiptrace.pete.clean" />
+              </div>
+              <div>
+                <label>Date format</label>
+                <input type="text" name="export_date_format" value="%m.%d.%y" />
+              </div>
+            </div>
+            <div style="height:12px"></div>
+            <div class="row">
+              <div>
+                <label>External ID digits</label>
+                <input type="number" name="external_id_digits" value="7" min="6" max="32" />
+              </div>
+              <div>
+                <label>
+                  <input type="checkbox" name="no_desktop_copy" value="true" />
+                  Don't copy to Downloads folder
+                </label>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <div style="height:20px"></div>
+        <button class="btn primary" type="submit" style="font-size:16px; padding:12px 24px;">
+          Convert to Pete Format
+        </button>
+        <div class="muted" style="margin-top:8px; font-size:13px">
+          Maps skip trace data → 129 Pete columns, generates External IDs, groups by address
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Expected Input Format</h3>
+      <div class="muted" style="margin-bottom:12px">Your skip trace file should have these columns (case-insensitive):</div>
+      <table>
+        <thead><tr><th>Column</th><th>Maps to</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">input_address</td><td>Street / Full Address</td></tr>
+          <tr><td class="mono">input_city</td><td>City</td></tr>
+          <tr><td class="mono">input_state</td><td>State</td></tr>
+          <tr><td class="mono">input_zip</td><td>Zip Code</td></tr>
+          <tr><td class="mono">first_name + last_name</td><td>Seller name</td></tr>
+          <tr><td class="mono">phone</td><td>Seller Phone</td></tr>
+          <tr><td class="mono">all_phones</td><td>Seller Phone2-5 (;-separated)</td></tr>
+          <tr><td class="mono">email</td><td>Seller Email</td></tr>
+          <tr><td class="mono">all_emails</td><td>Seller Email2-5 (;-separated)</td></tr>
+        </tbody>
+      </table>
+      <div style="height:12px"></div>
+      <div style="padding:10px; border:1px solid var(--border); border-radius:8px">
+        <div class="muted" style="font-size:13px">
+          <strong>Multiple people per address?</strong> Rows with the same input address are grouped automatically.
+          Up to 3 people become Seller, Seller2, Seller3.
+        </div>
+      </div>
+
+      {% if recent_converts %}
+        <div style="height:16px"></div>
+        <h3>Recent Conversions</h3>
+        <table>
+          <thead><tr><th>File</th><th>Rows</th><th>Download</th></tr></thead>
+          <tbody>
+          {% for c in recent_converts %}
+            <tr>
+              <td class="mono" style="font-size:12px">{{ c.name }}</td>
+              <td>{{ c.rows }}</td>
+              <td>
+                <a class="btn" style="padding:4px 8px; font-size:12px" href="/ui/skiptrace/download/{{ c.name }}">XLSX</a>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from pete_dm_clean.diagrams import default_flowcharts_dir, generate_pipeline_diagram
@@ -15,7 +15,14 @@ from pete_dm_clean.companies import load_companies, save_companies, new_company_
 from pete_dm_clean.config import load_config, default_config_path
 from pete_dm_clean.db import init_db_if_enabled, maybe_ingest_run_json
 from pete_dm_clean.logging import configure_logging, get_logger
+from pete_dm_clean.skiptrace_convert import (
+    SkipTraceConvertConfig,
+    run_skiptrace_convert,
+)
+from pete_dm_clean import __version__
 from build_staging import run_build
+from datetime import datetime
+import sys
 
 
 def _default_uploads_dir() -> Path:
@@ -125,6 +132,59 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
     @fastapi_app.get("/healthz", response_class=PlainTextResponse)
     def healthz():
         return PlainTextResponse("ok")
+
+    @fastapi_app.get("/health", response_class=JSONResponse)
+    def health():
+        """
+        Comprehensive health check endpoint with system info.
+        Returns 200 with details if healthy, 503 if unhealthy.
+        """
+        try:
+            # Check critical directories exist
+            critical_dirs = [
+                uploads_dir,
+                flow_root,
+                runs_root,
+            ]
+            missing_dirs = [str(d) for d in critical_dirs if not d.exists()]
+
+            # Get latest run info
+            latest_summary = _latest_file(runs_root, "*.summary.md")
+            latest_run_id = latest_summary.stem.replace(".summary", "") if latest_summary else None
+
+            # Determine status
+            status = "unhealthy" if missing_dirs else "healthy"
+            status_code = 503 if missing_dirs else 200
+
+            health_data = {
+                "status": status,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "version": __version__,
+                "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+                "uploads_dir": str(uploads_dir),
+                "checks": {
+                    "directories": {
+                        "status": "ok" if not missing_dirs else "error",
+                        "missing": missing_dirs or None,
+                    },
+                    "latest_run": {
+                        "run_id": latest_run_id,
+                        "exists": latest_run_id is not None,
+                    },
+                },
+            }
+
+            return JSONResponse(content=health_data, status_code=status_code)
+
+        except Exception as e:
+            return JSONResponse(
+                content={
+                    "status": "unhealthy",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "error": str(e),
+                },
+                status_code=503,
+            )
 
     @fastapi_app.get("/", response_class=HTMLResponse)
     def index():
@@ -570,6 +630,7 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
         debug_report: bool = Form(False),
         no_desktop_copy: bool = Form(False),
         contacts_only: bool = Form(False),
+        archive_after_build: bool = Form(True),
     ):
         # Resolve file paths relative to uploads/
         uploads_p = Path(uploads_dir)
@@ -605,6 +666,14 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
 
         try:
             eff_export_prefix = "AUTO_FROM_INPUT" if bool(export_prefix_from_input) else export_prefix
+
+            # Build dynamic desktop folder prefix from company name
+            # e.g., "Ross" -> "ross.dealmachine.clean"
+            if company_name:
+                desktop_prefix = f"{company_name.lower()}.dealmachine.clean"
+            else:
+                desktop_prefix = "pete.dealmachine.clean"
+
             result = run_build(
                 uploads_dir=uploads_p,
                 inputs_dir=inputs_dir,
@@ -628,7 +697,7 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
                 report_md=uploads_p / "staging_report.md",
                 desktop_copy=not bool(no_desktop_copy),
                 desktop_copy_dir=None,
-                desktop_subfolder_prefix="fernando.dealmachine.clean",
+                desktop_subfolder_prefix=desktop_prefix,
                 desktop_subfolder_date_format="%m.%d.%y",
                 debug_report=bool(debug_report),
                 debug_sample_n=25,
@@ -636,6 +705,28 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
                 company_name=company_name,
                 contacts_only=bool(contacts_only),
             )
+
+            # Archive source files after successful build (if requested)
+            if archive_after_build:
+                archive_dir = inputs_dir / "archive"
+                archive_dir.mkdir(exist_ok=True)
+                files_to_archive = []
+                if desired_p and desired_p.exists():
+                    files_to_archive.append(desired_p)
+                if contacts_p and contacts_p.exists():
+                    files_to_archive.append(contacts_p)
+
+                for file_path in files_to_archive:
+                    try:
+                        archived_path = archive_dir / file_path.name
+                        # If archive file already exists, overwrite it
+                        if archived_path.exists():
+                            archived_path.unlink()
+                        shutil.move(str(file_path), str(archived_path))
+                        log.info("archived_file path={} -> {}", file_path.name, archived_path)
+                    except Exception as archive_err:
+                        log.warning("archive_failed file={} err={}", file_path.name, str(archive_err))
+
         except FileNotFoundError as e:
             log.warning("ui_build_missing_inputs company_id={} err={}", company_id, str(e))
             return templates.TemplateResponse(
@@ -1115,6 +1206,149 @@ def create_app(uploads_dir: Path = Path("uploads")) -> FastAPI:
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=400, detail="artifact path invalid") from exc
 
+        return FileResponse(
+            path,
+            filename=path.name,
+            media_type="application/octet-stream",
+        )
+
+    # ------------------------------------------------------------------
+    # Skip Trace conversion UI
+    # ------------------------------------------------------------------
+    skiptrace_output_dir = Path(uploads_dir) / "skiptrace_output"
+    skiptrace_output_dir.mkdir(parents=True, exist_ok=True)
+
+    @fastapi_app.get("/ui/skiptrace", response_class=HTMLResponse)
+    def ui_skiptrace(request: Request):
+        recent: list[dict[str, str | int]] = []
+        for p in sorted(skiptrace_output_dir.glob("*.xlsx"), reverse=True)[:10]:
+            recent.append({"name": p.name, "rows": "—"})
+        return templates.TemplateResponse(
+            "skiptrace.html",
+            {"request": request, "recent_converts": recent},
+        )
+
+    @fastapi_app.post("/ui/skiptrace/convert", response_class=HTMLResponse)
+    async def ui_skiptrace_convert(
+        request: Request,
+        file: UploadFile = File(...),
+        campaign: str = Form("Skip Trace"),
+        status: str = Form("New"),
+        phase: str = Form(""),
+        export_prefix: str = Form("skiptrace.pete.clean"),
+        export_date_format: str = Form("%m.%d.%y"),
+        external_id_digits: int = Form(7),
+        no_desktop_copy: bool = Form(False),
+    ):
+        safe = _safe_filename(file.filename or "skiptrace.xlsx")
+
+        # Save uploaded file to temp location
+        tmp_dir = Path(uploads_dir) / "skiptrace_uploads"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        tmp_path = tmp_dir / safe
+        with tmp_path.open("wb") as f:
+            shutil.copyfileobj(file.file, f)
+
+        try:
+            # Derive export prefix from input filename if default
+            if export_prefix == "skiptrace.pete.clean":
+                stem = Path(safe).stem.lower()
+                stem = re.sub(r"[^a-z0-9]+", "-", stem).strip("-")
+                parts = stem.split("-")[:5]
+                export_prefix = "-".join(parts) + ".pete.clean" if parts else "skiptrace.pete.clean"
+
+            cfg = SkipTraceConvertConfig(
+                campaign=campaign,
+                status=status,
+                phase=phase,
+                external_id_digits=external_id_digits,
+                export_prefix=export_prefix,
+                export_date_format=export_date_format,
+                no_desktop_copy=no_desktop_copy,
+            )
+
+            # Desktop copy dir
+            desktop_copy_dir = None
+            if not no_desktop_copy:
+                desktop_dir = Path.home() / "Desktop" / "Downloads"
+                if not desktop_dir.exists():
+                    desktop_dir = Path.home() / "Downloads"
+                if desktop_dir.exists():
+                    date_str = datetime.now().strftime(cfg.export_date_format)
+                    desktop_copy_dir = desktop_dir / f"{cfg.export_prefix}.{date_str}"
+
+            result = run_skiptrace_convert(
+                input_path=tmp_path,
+                output_dir=skiptrace_output_dir,
+                cfg=cfg,
+                desktop_copy_dir=desktop_copy_dir,
+                input_filename=safe,
+            )
+
+            if result.total_rows == 0:
+                return templates.TemplateResponse(
+                    "error.html",
+                    {
+                        "request": request,
+                        "title": "No data converted",
+                        "message": "No valid rows found in your skip trace file.",
+                        "details": f"File had {result.input_rows} rows but none had usable address data.",
+                        "company_id": "",
+                    },
+                    status_code=400,
+                )
+
+            # Read report markdown for display
+            report_content = result.report_md.read_text() if result.report_md.exists() else ""
+
+            return templates.TemplateResponse(
+                "skiptrace_done.html",
+                {
+                    "request": request,
+                    "total_rows": result.total_rows,
+                    "total_sellers": result.total_sellers,
+                    "input_rows": result.input_rows,
+                    "skipped_rows": result.skipped_rows,
+                    "rows_with_phone": result.rows_with_phone,
+                    "rows_with_email": result.rows_with_email,
+                    "rows_with_phone2": result.rows_with_phone2,
+                    "dnc_count": result.dnc_count,
+                    "out_xlsx": result.out_xlsx.name,
+                    "out_csv": result.out_csv.name,
+                    "seller_summary_csv": result.seller_summary_csv.name,
+                    "report_md": result.report_md.name,
+                    "xlsx_name": result.out_xlsx.name,
+                    "csv_name": result.out_csv.name,
+                    "seller_summary_name": result.seller_summary_csv.name,
+                    "report_md_name": result.report_md.name,
+                    "desktop_copy_dir": str(desktop_copy_dir) if desktop_copy_dir else None,
+                    "report_content": report_content,
+                },
+            )
+
+        except Exception as exc:  # noqa: BLE001
+            log.exception("Skip trace conversion failed")
+            return templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "title": "Conversion error",
+                    "message": f"Failed to convert skip trace file: {exc}",
+                    "details": str(exc),
+                    "company_id": "",
+                },
+                status_code=500,
+            )
+
+    @fastapi_app.get("/ui/skiptrace/download/{filename}")
+    def ui_skiptrace_download(filename: str):
+        safe = _safe_filename(filename)
+        path = skiptrace_output_dir / safe
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+        resolved = path.resolve()
+        if not str(resolved).startswith(str(skiptrace_output_dir.resolve())):
+            raise HTTPException(status_code=400, detail="Invalid path")
         return FileResponse(
             path,
             filename=path.name,
