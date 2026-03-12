@@ -12,8 +12,8 @@ ENV PATH="/root/.local/bin:${PATH}"
 # Set working directory
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Copy dependency files (README.md needed by hatchling build backend)
+COPY pyproject.toml uv.lock README.md ./
 COPY .python-version ./
 
 # Install Python dependencies
